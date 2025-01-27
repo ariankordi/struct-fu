@@ -56,7 +56,17 @@ console.log('',obj0, "\n==>\n", obj1);
 //console.log(_buf);
 
 console.log("\nRunning tests.");
-function assert(b,msg) { if (!b) throw Error("Assertion failure. "+msg); else console.log(msg); }
+
+var failedMsg = [];
+function assert(b,msg) {
+    if (!b) {
+        //throw Error("Assertion failure. "+msg);
+        failedMsg.push(msg);
+        console.warn("\u001b[1m\u001b[31mASSERTION FAILURE: \u001b[0m"+msg);
+    } else {
+        console.log(msg);
+    }
+}
 
 console.log("  = API check =  ");
 assert('fields' in entry, "Entry has fields property.");
@@ -291,4 +301,9 @@ assert(unpackedShortStruct.b === 2, "Second bit in unpacked < 32 bit structs is 
 assert(unpackedShortStruct.c === 3, "Third bit in unpacked < 32 bit structs is unpacked correctly");
 
 
-console.log("\nAll tests passed!");
+if (failedMsg.length > 0) {
+    console.log("\n\u001b[1m\u001b[31mSome tests failed!!!\u001b[1m\u001b[0m");
+    console.log(failedMsg)
+} else {
+    console.log("\nAll tests passed!");
+}
