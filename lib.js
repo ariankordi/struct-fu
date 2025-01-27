@@ -1,5 +1,23 @@
 var _ = {};
 
+// Add ECMA262-5 method binding if not supported natively
+// https://github.com/ReactNativeNews/react-native-newsletter/blob/93016f62af32d97cc009f991d4f7c3c7155a4f26/ie.js#L8
+if (!('bind' in Function.prototype)) {
+    Function.prototype.bind = function (owner) {
+        var that = this;
+        if (arguments.length <= 1) {
+            return function () {
+                return that.apply(owner, arguments);
+            };
+        } else {
+            var args = Array.prototype.slice.call(arguments, 1);
+            return function () {
+                return that.apply(owner, arguments.length === 0 ? args : args.concat(Array.prototype.slice.call(arguments)));
+            };
+        }
+    };
+}
+
 function newBuffer(size) {
     return new Uint8Array(new ArrayBuffer(size));
 }
@@ -301,26 +319,32 @@ _.byte = bytefield.bind({
 
 _.char = bytefield.bind({
     b2v: function (b) {
-        var decoder = new (TextDecoder || function () {
-            function TextDecoder(encoding) { this.encoding = encoding; }
-            TextDecoder.prototype.decode = function (buffer) {
+        var decoder;
+        if (typeof TextDecoder !== 'undefined') {
+            decoder = new TextDecoder('utf-8');
+        } else {
+            var TextDecoder = function() { };
+            TextDecoder.prototype.decode = function(buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
-                for (var i = 0; i < bytes.length; i++) {
+                for (var i = 0; i < bytes.length; i ++) {
                     str += String.fromCharCode(bytes[i]);
                 }
                 return str;
             };
-            return TextDecoder;
-        })('utf-8');
+            decoder = new TextDecoder();
+        }
         var v = decoder.decode(b);
         var z = v.indexOf('\0');
         return (~z) ? v.slice(0, z) : v;
     },
     vTb: function (v,b) {
         v || (v = '');
-        var encoder = new (TextEncoder || function () {
-            function TextEncoder(encoding) { this.encoding = encoding; }
+        var encoder;
+        if (typeof TextEncoder !== 'undefined') {
+            encoder = new TextEncoder('utf-8');
+        } else {
+            var TextEncoder = function() { };
             TextEncoder.prototype.encode = function (str) {
                 var bytes = new Uint8Array(str.length);
                 for (var i = 0; i < str.length; i++) {
@@ -328,8 +352,8 @@ _.char = bytefield.bind({
                 }
                 return bytes;
             };
-            return TextEncoder;
-        })();
+            encoder = new TextEncoder();
+        }
         var encoded = encoder.encode(v);
         for (var i = 0; i < encoded.length && i < b.length; i++) {
             b[i] = encoded[i];
@@ -340,9 +364,12 @@ _.char = bytefield.bind({
 
 _.char16le = bytefield.bind({
     b2v: function (b) {
-        var decoder = new (TextDecoder || function () {
-            function TextDecoder(encoding) { this.encoding = encoding; }
-            TextDecoder.prototype.decode = function (buffer) {
+        var decoder;
+        if (typeof TextDecoder !== 'undefined') {
+            decoder = new TextDecoder('utf-16le');
+        } else {
+            var TextDecoder = function() { };
+            TextDecoder.prototype.decode = function(buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
                 for (var i = 0; i < bytes.length; i += 2) {
@@ -351,8 +378,8 @@ _.char16le = bytefield.bind({
                 }
                 return str;
             };
-            return TextDecoder;
-        })('utf-16le');
+            decoder = new TextDecoder();
+        }
         var v = decoder.decode(b);
         var z = v.indexOf('\0');
         return (~z) ? v.slice(0, z) : v;
@@ -373,9 +400,12 @@ _.char16be = bytefield.bind({
     b2v: function (b) {
         var temp = new Uint8Array(b);
         swapBytesPairs(temp);
-        var decoder = new (TextDecoder || function () {
-            function TextDecoder(encoding) { this.encoding = encoding; }
-            TextDecoder.prototype.decode = function (buffer) {
+        var decoder;
+        if (typeof TextDecoder !== 'undefined') {
+            decoder = new TextDecoder('utf-16le');
+        } else {
+            var TextDecoder = function() { };
+            TextDecoder.prototype.decode = function(buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
                 for (var i = 0; i < bytes.length; i += 2) {
@@ -384,8 +414,8 @@ _.char16be = bytefield.bind({
                 }
                 return str;
             };
-            return TextDecoder;
-        })('utf-16le');
+            decoder = new TextDecoder();
+        }
         var v = decoder.decode(temp.buffer);
         var z = v.indexOf('\0');
         return (~z) ? v.slice(0, z) : v;
