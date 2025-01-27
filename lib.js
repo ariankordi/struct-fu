@@ -300,7 +300,7 @@ _.padTo = function (off) {
 var FULL = 0xFFFFFFFF;
 
 /**
- * Defines a bitfield within a structure.
+ * Defines a big-endian bitfield within a structure.
  *
  * @param {string} name - The name of the bitfield.
  * @param {number} [width=1] - The width of the bitfield in bits.
@@ -308,7 +308,7 @@ var FULL = 0xFFFFFFFF;
  * @returns {Object} The defined bitfield.
  */
 function bitfield(name, width, count) {
-    var littleEndian = false; // TODO
+    var littleEndian = false; // Passed to truncatedRead/WriteUInt32
 
     width || (width = 1);
     // NOTE: width limitation is so all values will align *within* a 4-byte word
@@ -360,22 +360,81 @@ function bitfield(name, width, count) {
 
 
 /**
- * Swaps the order of bits in a number.
+ * Defines a little-endian bitfield within a structure.
+ * This is meant to read and write bitfields inline with the behavior of GCC.
  *
- * @param {number} n - The number to swap.
- * @param {number} w - The width in bits.
- * @returns {number} The bit-swapped number.
+ * @param {string} name - The name of the bitfield.
+ * @param {number} [width=1] - The width of the bitfield in bits.
+ * @param {number} [count] - The number of bitfields in an array.
+ * @returns {Object} The defined bitfield.
  */
-function swapBits(n, w) {
-    var o = 0;
-    while (w--) {
-        o <<= 1;
-        o |= n & 1;
-        n >>>= 1;
-    }
-    return o;
-}
+function bitfieldLE(name, width, count) {
+    width || (width = 1);
+    if (width > 24) throw Error("Bitfields support a maximum width of 24 bits.");
 
+    // The default bitfield type uses "top bits" of a 32-bit read.
+    // We define a new "cbitLE" approach that uses the lower bits first.
+    var impl = this,
+        mask = (0xFFFFFFFF >>> (32 - width)) >>> 0; // Mask of (width) bits
+
+    return arrayizeField({
+        /**
+         * Unpacks a bitfield value from bytes.
+         *
+         * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
+         * @param {Object} [off] - The offset object with bytes and bits.
+         * @returns {number} The unpacked bitfield value.
+         */
+        valueFromBytes: function(buf, off) {
+            off || (off = {bytes:0, bits:0});
+
+            // Read 32 bits from the buffer in "true" little-endian
+            // (so bytes[0] is the lowest-order bits in that 32)
+            var word = truncatedReadUInt32(buf, off.bytes, true) >>> 0;
+
+            // The field bits we want are from "off.bits" up through
+            // "off.bits + width - 1" in that 32. That means:
+            var shift = off.bits;  // how many bits already used in that 32
+            var result = (word >>> shift) & mask;
+
+            // Move offset forward by 'width' bits
+            addField(off, this);
+
+            return impl.b2v.call(this, result);
+        },
+
+        /**
+         * Packs a bitfield value into bytes.
+         *
+         * @param {number} val - The value to pack.
+         * @param {ArrayBuffer|Uint8Array} buf - The buffer to write to.
+         * @param {Object} [off] - The offset object with bytes and bits.
+         * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
+         */
+        bytesFromValue: function(val, buf, off) {
+            off || (off = {bytes:0, bits:0});
+
+            // read existing 32 bits
+            var word = truncatedReadUInt32(buf, off.bytes, true) >>> 0;
+
+            var shift = off.bits;
+            // Clear out the bits in "mask << shift"
+            var clearMask = ~(mask << shift) >>> 0;
+            word &= clearMask;
+
+            var toStore = (impl.v2b.call(this, val) & mask) << shift;
+            word |= (toStore >>> 0);
+
+            truncatedWriteUInt32(buf, off.bytes, word >>> 0, true);
+
+            addField(off, this);
+            return buf;
+        },
+
+        width: width,
+        name: name
+    }, count);
+}
 
 _.bool = function (name, count) {
     return bitfield.call({
@@ -396,6 +455,7 @@ _.bool = function (name, count) {
     }, name, 1, count);
 
 };
+
 _.ubit = bitfield.bind({
     /**
      * Converts a bitfield to a value.
@@ -412,6 +472,7 @@ _.ubit = bitfield.bind({
      */
     v2b: function (v) { return v; }
 });
+
 /**
  * Defines a little-endian bitfield.
  *
@@ -420,21 +481,21 @@ _.ubit = bitfield.bind({
  * @param {number} [count] - The number of bitfields in an array.
  * @returns {Object} The defined little-endian bitfield.
  */
-_.ubitLE = bitfield.bind({
+_.ubitLE = bitfieldLE.bind({
     /**
      * Converts a bitfield to a little-endian value.
      *
      * @param {number} b - The bitfield value.
      * @returns {number} The little-endian numeric value.
      */
-    b2v: function (b) { return swapBits(b, this.width); },
+    b2v: function (b) { return b; },
     /**
      * Converts a little-endian value to a bitfield.
      *
      * @param {number} v - The little-endian numeric value.
      * @returns {number} The bitfield representation.
      */
-    v2b: function (v) { return swapBits(v, this.width); }
+    v2b: function (v) { return v; }
 });
 
 /**

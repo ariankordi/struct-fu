@@ -1,24 +1,23 @@
 # struct-fu browser port
 
-This is a port of the amazing struct-fu library to use ArrayBuffers and DataViews so that it works in the browser and still functions in pre-ES6 environments.
+This is a port of the excellent struct-fu library to use ArrayBuffers and DataViews so that it works in the browser and still functions in pre-ES6 environments.
 
 Other TODOs:
 
-* **Read little-endian bitfields just like GCC.**
-* _Read more than 24 bit long bitfields_
+* Read more than 24 bit long bitfields
 * eslint/formatting settings
-
-Distant todos:
-* TypeScript + Babel
-* _Verify min/max values for fields?_ (Without exceptions)
-* Further minimize/treeshake???
-* Import C structs from DWARF???????
-* Generate functions for packing/unpacking????????
+* (Distant TODOs:)
+  - TypeScript + Babel
+  - _Verify min/max values for fields?_ (Without exceptions)
+  - Further minimize/treeshake???
+  - Import C structs from DWARF???????
+  - Generate functions for packing/unpacking????????
 
 ### Known issues with this fork
-* Not using Node Buffers which cause some tests to fail.
+* Not using Node Buffers which causes some tests to fail.
 * On Node, Unicode characters don't encode in UTF-8 with `_.char`.
     - This is because that usually uses TextEncoder for which I made simple polyfill for, and Node is using the polyfill.
+* Tests have not been updated to account for new ubitLE handling.
 
 # Original README: struct-fu
 

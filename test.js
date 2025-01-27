@@ -60,6 +60,7 @@ console.log("\nRunning tests.");
 var failedMsg = [];
 function assert(b,msg) {
     if (!b) {
+        debugger
         //throw Error("Assertion failure. "+msg);
         failedMsg.push(msg);
         console.warn("\u001b[1m\u001b[31mASSERTION FAILURE: \u001b[0m"+msg);
