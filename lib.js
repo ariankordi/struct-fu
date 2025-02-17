@@ -69,7 +69,7 @@ function addField(ctr, f) {
     } else if (!ctr.bits) {
         ctr.bytes += f.size;
     } else {
-        throw Error("Improperly aligned bitfield before field: "+f.name);
+        throw Error('Improperly aligned bitfield before field: ' + f.name);
     }
     return ctr;
 }
@@ -93,7 +93,7 @@ function arrayizeField(f, count) {
          * @returns {Array} The unpacked array of values.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var arr = new Array(count);
             for (var idx = 0, len = arr.length; idx < len; idx += 1) {
                 arr[idx] = f.valueFromBytes(buf, off);
@@ -111,14 +111,14 @@ function arrayizeField(f, count) {
         bytesFromValue: function (arr, buf, off) {
             arr || (arr = new Array(count));
             buf || (buf = newBuffer(this.size));
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             for (var idx = 0, len = Math.min(arr.length, count); idx < len; idx += 1) {
                 f.bytesFromValue(arr[idx], buf, off);
             }
             while (idx++ < count) addField(off, f);
             return buf;
         }
-    }, ('width' in f) ? {width: f.width * count} : {size: f.size * count}) : f;
+    }, ('width' in f) ? { width: f.width * count } : { size: f.size * count }) : f;
     f2.pack = f2.bytesFromValue;
     f2.unpack = f2.valueFromBytes;
     return f2;
@@ -139,24 +139,23 @@ _.struct = function (name, fields, count) {
         name = null;
     }
 
-    var _size = {bytes:0, bits:0},
+    var _size = { bytes: 0, bits: 0 },
         _padsById = Object.create(null),
         fieldsObj = fields.reduce(function (obj, f) {
             if ('_padTo' in f) {
                 // HACK: we really should just make local copy of *all* fields
                 f._id || (f._id = 'id' + Math.random().toFixed(20).slice(2)); // WORKAROUND: https://github.com/tessel/runtime/issues/716
                 var _f = _padsById[f._id] = (_size.bits) ? {
-                    width: 8*(f._padTo - _size.bytes) - _size.bits
+                    width: 8 * (f._padTo - _size.bytes) - _size.bits
                 } : {
                     size: f._padTo - _size.bytes
                 };
                 if ((_f.width !== undefined && _f.width < 0) || (_f.size !== undefined && _f.size < 0)) {
-                    var xtraMsg = (_size.bits) ? (" and " + _size.bits + " bits") : '';
-                    throw Error("Invalid .padTo(" + f._padTo + ") field, struct is already " + _size.bytes + " byte(s)" + xtraMsg + "!");
+                    var xtraMsg = (_size.bits) ? (' and ' + _size.bits + ' bits') : '';
+                    throw Error('Invalid .padTo(' + f._padTo + ') field, struct is already ' + _size.bytes + ' byte(s)' + xtraMsg + '!');
                 }
                 f = _f;
-            }
-            else if (f._hoistFields) {
+            } else if (f._hoistFields) {
                 Object.keys(f._hoistFields).forEach(function (name) {
                     var _f = Object.create(f._hoistFields[name]);
                     if ('width' in _f) {
@@ -166,16 +165,15 @@ _.struct = function (name, fields, count) {
                     }
                     obj[name] = _f;
                 });
-            }
-            else if (f.name) {
+            } else if (f.name) {
                 f = Object.create(f);           // local overrides
-                f.offset = ('width' in f) ? {bytes:_size.bytes,bits:_size.bits} : _size.bytes,
+                f.offset = ('width' in f) ? { bytes: _size.bytes, bits: _size.bits } : _size.bytes,
                 obj[f.name] = f;
             }
             addField(_size, f);
             return obj;
         }, {});
-    if (_size.bits) throw Error("Improperly aligned bitfield at end of struct: "+name);
+    if (_size.bits) throw Error('Improperly aligned bitfield at end of struct: ' + name);
 
     return arrayizeField({
         /**
@@ -186,7 +184,7 @@ _.struct = function (name, fields, count) {
          * @returns {Object} The unpacked structure.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var obj = {};
             fields.forEach(function (f) {
                 if ('_padTo' in f) return addField(off, _padsById[f._id]);
@@ -208,7 +206,7 @@ _.struct = function (name, fields, count) {
         bytesFromValue: function (obj, buf, off) {
             obj || (obj = {});
             buf || (buf = newBuffer(this.size));
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             fields.forEach(function (f) {
                 if ('_padTo' in f) return addField(off, _padsById[f._id]);
 
@@ -291,7 +289,7 @@ function truncatedWriteUInt32(buffer, offset, data, littleEndian) {
  * @returns {Object} The padding field definition.
  */
 _.padTo = function (off) {
-    return {_padTo:off};
+    return { _padTo: off };
 };
 
 
@@ -312,7 +310,7 @@ function bitfield(name, width, count) {
 
     width || (width = 1);
     // NOTE: width limitation is so all values will align *within* a 4-byte word
-    if (width > 24) throw Error("Bitfields support a maximum width of 24 bits.");
+    if (width > 24) throw Error('Bitfields support a maximum width of 24 bits.');
     var impl = this,
         mask = FULL >>> (32 - width);
     return arrayizeField({
@@ -324,7 +322,7 @@ function bitfield(name, width, count) {
          * @returns {number} The unpacked bitfield value.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var end = (off.bits || 0) + width,
                 word = truncatedReadUInt32(buf, off.bytes, littleEndian) || 0,
                 over = word >>> (32 - end);
@@ -341,7 +339,7 @@ function bitfield(name, width, count) {
          */
         bytesFromValue: function (val, buf, off) {
             val = impl.v2b.call(this, val || 0);
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var end = (off.bits || 0) + width,
                 word = truncatedReadUInt32(buf, off.bytes, littleEndian) || 0,
                 zero = mask << (32 - end),
@@ -370,7 +368,7 @@ function bitfield(name, width, count) {
  */
 function bitfieldLE(name, width, count) {
     width || (width = 1);
-    if (width > 24) throw Error("Bitfields support a maximum width of 24 bits.");
+    if (width > 24) throw Error('Bitfields support a maximum width of 24 bits.');
 
     // The default bitfield type uses "top bits" of a 32-bit read.
     // We define a new "cbitLE" approach that uses the lower bits first.
@@ -386,7 +384,7 @@ function bitfieldLE(name, width, count) {
          * @returns {number} The unpacked bitfield value.
          */
         valueFromBytes: function(buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
 
             // Read 32 bits from the buffer in "true" little-endian
             // (so bytes[0] is the lowest-order bits in that 32)
@@ -412,7 +410,7 @@ function bitfieldLE(name, width, count) {
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
          */
         bytesFromValue: function(val, buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
 
             // read existing 32 bits
             var word = truncatedReadUInt32(buf, off.bytes, true) >>> 0;
@@ -514,7 +512,7 @@ _.sbit = bitfield.bind({        // TODO: handle sign bit…
      * @returns {number} The signed numeric value.
      */
     b2v: function (b) {
-        var m = 1 << (this.width-1),
+        var m = 1 << (this.width - 1),
             s = b & m;
         return (s) ? -(b &= ~m) : b;
     },
@@ -525,7 +523,7 @@ _.sbit = bitfield.bind({        // TODO: handle sign bit…
      * @returns {number} The bitfield representation.
      */
     v2b: function (v) {
-        var m = 1 << (this.width-1),
+        var m = 1 << (this.width - 1),
             s = (v < 0);
         return (s) ? (-v | m) : v;
     }
@@ -556,7 +554,7 @@ function bytefield(name, size, count) {
          * @returns {Uint8Array} The unpacked bytefield.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
             var val = bytes.subarray(off.bytes, off.bytes + this.size);
             addField(off, this);
@@ -634,11 +632,11 @@ _.char = bytefield.bind({
         if (typeof TextDecoder !== 'undefined') {
             decoder = new TextDecoder('utf-8');
         } else {
-            var TextDecoder = function() { };
-            TextDecoder.prototype.decode = function(buffer) {
+            var TextDecoder = function () { };
+            TextDecoder.prototype.decode = function (buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
-                for (var i = 0; i < bytes.length; i ++) {
+                for (var i = 0; i < bytes.length; i++) {
                     str += String.fromCharCode(bytes[i]);
                 }
                 return str;
@@ -656,13 +654,13 @@ _.char = bytefield.bind({
      * @param {Uint8Array} b - The buffer to write to.
      * @returns {number} The number of bytes written.
      */
-    vTb: function (v,b) {
+    vTb: function (v, b) {
         v || (v = '');
         var encoder;
         if (typeof TextEncoder !== 'undefined') {
             encoder = new TextEncoder('utf-8');
         } else {
-            var TextEncoder = function() { };
+            var TextEncoder = function () { };
             TextEncoder.prototype.encode = function (str) {
                 var bytes = new Uint8Array(str.length);
                 for (var i = 0; i < str.length; i++) {
@@ -692,8 +690,8 @@ _.char16le = bytefield.bind({
         if (typeof TextDecoder !== 'undefined') {
             decoder = new TextDecoder('utf-16le');
         } else {
-            var TextDecoder = function() { };
-            TextDecoder.prototype.decode = function(buffer) {
+            var TextDecoder = function () { };
+            TextDecoder.prototype.decode = function (buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
                 for (var i = 0; i < bytes.length; i += 2) {
@@ -715,7 +713,7 @@ _.char16le = bytefield.bind({
      * @param {Uint8Array} b - The buffer to write to.
      * @returns {number} The number of bytes written.
      */
-    vTb: function (v,b) {
+    vTb: function (v, b) {
         v || (v = '');
         var bytesWritten = 0;
         for (var i = 0; i < v.length && bytesWritten + 1 < b.length; i++) {
@@ -741,8 +739,8 @@ _.char16be = bytefield.bind({
         if (typeof TextDecoder !== 'undefined') {
             decoder = new TextDecoder('utf-16le');
         } else {
-            var TextDecoder = function() { };
-            TextDecoder.prototype.decode = function(buffer) {
+            var TextDecoder = function () { };
+            TextDecoder.prototype.decode = function (buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
                 for (var i = 0; i < bytes.length; i += 2) {
@@ -764,7 +762,7 @@ _.char16be = bytefield.bind({
      * @param {Uint8Array} b - The buffer to write to.
      * @returns {number} The number of bytes written.
      */
-    vTb: function (v,b) {
+    vTb: function (v, b) {
         v || (v = '');
         var temp = new Uint8Array(b.length);
         var bytesWritten = 0;
@@ -804,7 +802,7 @@ function standardField(sig, size, littleEndian) {
              * @returns {*} The unpacked value.
              */
             valueFromBytes: function (buf, off) {
-                off || (off = {bytes:0});
+                off || (off = { bytes: 0 });
                 var bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
                 var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
                 var val = view[read](off.bytes, littleEndian);
@@ -822,7 +820,7 @@ function standardField(sig, size, littleEndian) {
             bytesFromValue: function (val, buf, off) {
                 val || (val = 0);
                 buf || (buf = newBuffer(this.size));
-                off || (off = {bytes:0});
+                off || (off = { bytes: 0 });
                 var bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
                 var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
                 view[dump](off.bytes, val, littleEndian);
@@ -889,7 +887,7 @@ _.derive = function (orig, pack, unpack) {
                 return orig.bytesFromValue(pack(val), buf, off);
             },
             name: name
-        }, ('width' in orig) ? {width:orig.width} : {size:orig.size}), count);
+        }, ('width' in orig) ? { width: orig.width } : { size: orig.size }), count);
     };
 };
 
