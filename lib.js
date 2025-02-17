@@ -1,24 +1,41 @@
+(function (root, factory) {
+    if (typeof define === 'function' && define.amd) {
+        // AMD. Register as an anonymous module.
+        define([], factory);
+    } else if (typeof module === 'object' && module.exports) {
+        // Node.js/CommonJS
+        module.exports = factory(require('util').TextEncoder, require('util').TextDecoder);
+    } else {
+        // Browser globals (root is window)
+        root._ = factory(root.TextEncoder, root.TextDecoder);
+    }
+}(typeof self !== 'undefined' ? self : this, function (TextEncoder, TextDecoder) {
+'use strict';
+
 /**
  * A library for defining structs to convert between JSON and binary.
  * Supports numbers, bytes, strings, and bitfields.
  * Compatible with browsers down to Safari 5.1.
  *
- * @namespace
+ * @namespace _
  */
 var _ = {};
 
 // Add ECMA262-5 method binding if not supported natively
 // https://github.com/ReactNativeNews/react-native-newsletter/blob/93016f62af32d97cc009f991d4f7c3c7155a4f26/ie.js#L8
 if (!('bind' in Function.prototype)) {
+    // @ts-ignore-error
     Function.prototype.bind = function (owner) {
         var that = this;
         if (arguments.length <= 1) {
             return function () {
+                // @ts-ignore-error
                 return that.apply(owner, arguments);
             };
         } else {
             var args = Array.prototype.slice.call(arguments, 1);
             return function () {
+                // @ts-ignore-error
                 return that.apply(owner, arguments.length === 0 ? args : args.concat(Array.prototype.slice.call(arguments)));
             };
         }
@@ -125,12 +142,45 @@ function arrayizeField(f, count) {
 }
 
 /**
+ * Represents a field definition within a struct.
+ *
+ * @typedef {Object} Field
+ * @property {string} [name] - The name of the field.
+ * @property {number} size - The size of the field in bytes (for non-bitfield types).
+ * @property {number} [width] - The width of the field in bits (for bitfields).
+ * @property {number|{bytes:number, bits:number}} offset - The byte or bit offset of the field in the structure.
+ * @property {function((ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): *} valueFromBytes - Unpacks the field value from a buffer.
+ * @property {function(*, (ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): (ArrayBuffer|Uint8Array)} bytesFromValue - Packs a value into a buffer.
+ * @property {function(*, (ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): (ArrayBuffer|Uint8Array)} pack - Alias for `bytesFromValue`.
+ * @property {function((ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): *} unpack - Alias for `valueFromBytes`.
+ * @property {Record<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
+ * @property {Record<string, Field>} fields - An object mapping field names to their definitions.
+ */
+
+/**
+ * Template for the return type of _.struct().
+ * This defines a structured binary format and provides methods to serialize and deserialize data.
+ *
+ * @template T
+ * @typedef {Object} StructInstance
+ * @property {function(Uint8Array): T} unpack - Deserializes a Uint8Array into the structured object.
+ * @property {function(T): Uint8Array} pack - Serializes the structured object into a Uint8Array.
+ * @property {function(Uint8Array, Object): T} valueFromBytes - Reads structured data from a Uint8Array buffer.
+ * @property {function(T, Uint8Array, Object): Uint8Array} bytesFromValue - Writes structured data into a Uint8Array buffer.
+ * @property {Record<string, Field|StructInstance<T>>} fields - An object mapping field names to their definitions.
+ * @property {number} size - The total size in bytes of the packed structure.
+ * @property {string|null} name - The name of the struct (if provided).
+ * @property {Record<string, Field>|null} _hoistFields - If this is a nested struct, this maps sub-fields to their definitions.
+ */
+
+
+/**
  * Defines a new structure with the given fields.
  *
  * @param {string} [name] - The name of the structure.
  * @param {Array} fields - The array of field definitions.
  * @param {number} [count] - The number of structures in an array.
- * @returns {Object} The defined structure with pack and unpack methods.
+ * @returns {StructInstance<T>} The defined structure with pack and unpack methods.
  */
 _.struct = function (name, fields, count) {
     if (typeof name !== 'string') {
@@ -181,7 +231,7 @@ _.struct = function (name, fields, count) {
          *
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
          * @param {Object} [off] - The offset object with bytes and bits.
-         * @returns {Object} The unpacked structure.
+         * @returns {T} The unpacked structure.
          */
         valueFromBytes: function (buf, off) {
             off || (off = { bytes: 0, bits: 0 });
@@ -198,7 +248,7 @@ _.struct = function (name, fields, count) {
         /**
          * Packs a structure into bytes.
          *
-         * @param {Object} obj - The object containing values to pack.
+         * @param {T} obj - The object containing values to pack.
          * @param {ArrayBuffer|Uint8Array} [buf] - The buffer to write to.
          * @param {Object} [off] - The offset object with bytes and bits.
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
@@ -364,7 +414,7 @@ function bitfield(name, width, count) {
  * @param {string} name - The name of the bitfield.
  * @param {number} [width=1] - The width of the bitfield in bits.
  * @param {number} [count] - The number of bitfields in an array.
- * @returns {Object} The defined bitfield.
+ * @returns {Object} The defined little-endian bitfield.
  */
 function bitfieldLE(name, width, count) {
     width || (width = 1);
@@ -383,7 +433,7 @@ function bitfieldLE(name, width, count) {
          * @param {Object} [off] - The offset object with bytes and bits.
          * @returns {number} The unpacked bitfield value.
          */
-        valueFromBytes: function(buf, off) {
+        valueFromBytes: function (buf, off) {
             off || (off = { bytes: 0, bits: 0 });
 
             // Read 32 bits from the buffer in "true" little-endian
@@ -400,7 +450,6 @@ function bitfieldLE(name, width, count) {
 
             return impl.b2v.call(this, result);
         },
-
         /**
          * Packs a bitfield value into bytes.
          *
@@ -409,7 +458,7 @@ function bitfieldLE(name, width, count) {
          * @param {Object} [off] - The offset object with bytes and bits.
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
          */
-        bytesFromValue: function(val, buf, off) {
+        bytesFromValue: function (val, buf, off) {
             off || (off = { bytes: 0, bits: 0 });
 
             // read existing 32 bits
@@ -428,7 +477,6 @@ function bitfieldLE(name, width, count) {
             addField(off, this);
             return buf;
         },
-
         width: width,
         name: name
     }, count);
@@ -451,7 +499,6 @@ _.bool = function (name, count) {
          */
         v2b: function (v) { return (v) ? FULL : 0; }
     }, name, 1, count);
-
 };
 
 _.ubit = bitfield.bind({
@@ -559,7 +606,6 @@ function bytefield(name, size, count) {
             var val = bytes.subarray(off.bytes, off.bytes + this.size);
             addField(off, this);
             return impl.b2v.call(this, val);
-            //return impl.b2v.call(this, val.buffer.slice(val.byteOffset, val.byteOffset + val.byteLength)); // Returns ArrayBuffer usually
         },
         /**
          * Packs a bytefield into bytes.
@@ -632,7 +678,7 @@ _.char = bytefield.bind({
         if (typeof TextDecoder !== 'undefined') {
             decoder = new TextDecoder('utf-8');
         } else {
-            var TextDecoder = function () { };
+            var TextDecoder = function (_) { };
             TextDecoder.prototype.decode = function (buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
@@ -660,7 +706,7 @@ _.char = bytefield.bind({
         if (typeof TextEncoder !== 'undefined') {
             encoder = new TextEncoder('utf-8');
         } else {
-            var TextEncoder = function () { };
+            var TextEncoder = function (_) { };
             TextEncoder.prototype.encode = function (str) {
                 var bytes = new Uint8Array(str.length);
                 for (var i = 0; i < str.length; i++) {
@@ -690,7 +736,7 @@ _.char16le = bytefield.bind({
         if (typeof TextDecoder !== 'undefined') {
             decoder = new TextDecoder('utf-16le');
         } else {
-            var TextDecoder = function () { };
+            var TextDecoder = function (_) { };
             TextDecoder.prototype.decode = function (buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
@@ -739,7 +785,7 @@ _.char16be = bytefield.bind({
         if (typeof TextDecoder !== 'undefined') {
             decoder = new TextDecoder('utf-16le');
         } else {
-            var TextDecoder = function () { };
+            var TextDecoder = function (_) { };
             TextDecoder.prototype.decode = function (buffer) {
                 var bytes = new Uint8Array(buffer);
                 var str = '';
@@ -891,10 +937,5 @@ _.derive = function (orig, pack, unpack) {
     };
 };
 
-// Export for Node.js environments
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = _;
-} else {
-    // Export to global scope for browsers
-    window._ = _;
-}
+return _;
+}));

@@ -21,7 +21,8 @@ module.exports = [
             "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
             "object-curly-spacing": ["error", "always"],
             "key-spacing": ["error", { "afterColon": true } ],
-            "space-infix-ops": ["error", { "int32Hint": false }]
+            "space-infix-ops": ["error", { "int32Hint": false }],
+            "comma-spacing": ["error", { "after": true }]
         }
     }
 ];
