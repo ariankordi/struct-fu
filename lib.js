@@ -1,15 +1,104 @@
+// @ts-check
+
+// // ---------------------------------------------------------------------
+// //  Exported JSDoc Type Definitions
+// // ---------------------------------------------------------------------
+
+/**
+ * A type representing either a raw ArrayBuffer or a typed view of it.
+ * @typedef {ArrayBuffer | Uint8Array} BufferSource
+ */
+
+/**
+ * A type for the "cursor" used to track the byte and bit offsets.
+ * @typedef {Object} Cursor
+ * @property {number} bytes - Current byte offset.
+ * @property {number} [bits] - Current bit offset.
+ */
+
+/**
+ * A transform interface for bitfields, converting between raw number bits and user values.
+ * (Used by `b2v` and `v2b` methods.)
+ * @typedef {Object} BitTransform
+ * @property {function(this:{width:number}, number):number} b2v - Called when reading bits from buffer.
+ * @property {function(this:{width:number}, number):number} v2b - Called when writing bits into buffer.
+ * @property {number} width - The width (in bits) of this bitfield.
+ */
+
+/**
+ * A transform interface for byte fields, converting between raw bytes and user values.
+ * (Used by `b2v` and `vTb` methods.)
+ * @typedef {Object} ByteTransform
+ * @property {function(BufferSource):*} b2v - Called when reading bytes from buffer.
+ * @property {function(*, Uint8Array):number} vTb - Called when writing values into buffer.
+ * @property {number} size - The size (in bytes) of this field.
+ */
+
+/**
+ * Defines the shape of the offset object used in many function signatures.
+ * @typedef {Object} Offset
+ * @property {number} bytes
+ * @property {number} [bits]
+ */
+
+/**
+ * A single field definition, which must define how to read (unpack) and write (pack) data.
+ * This is the base type that all specialized fields (bitfields, bytefields, etc.) implement.
+ *
+ * @typedef {Object} Field
+ * @property {string} [name] - The name of the field (if any).
+ * @property {number} [size] - The size of the field in bytes (for non-bitfield types).
+ * @property {number} [width] - The size of the field in bits (for bitfields).
+ * @property {number | Offset} [offset] - Byte or (byte,bits) offset.
+ * @property {function(BufferSource, Offset=): *} valueFromBytes - Unpacks the field value from a buffer.
+ * @property {function(*, BufferSource, Offset=): BufferSource} bytesFromValue - Packs a value into a buffer.
+ * @property {function(*, BufferSource, Offset=): BufferSource} pack - Alias for `bytesFromValue`.
+ * @property {function(BufferSource, Offset=): *} unpack - Alias for `valueFromBytes`.
+ * @property {Record<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
+ * @property {Record<string, Field>} [fields] - An object mapping field names to their definitions.
+ */
+
+/**
+ * Template for the return type of _.struct(), representing an instance of a structure with pack/unpack methods.
+ * It is generic in case you want to define a typed object for the data.
+ *
+ * @template T
+ * @typedef {Object} StructInstance
+ * @property {function(BufferSource): T} unpack - Deserialize from a BufferSource into the structured object.
+ * @property {function(T): Uint8Array} pack - Serialize the structured object into a Uint8Array.
+ * @property {function(BufferSource, Offset=): T} valueFromBytes - Reads structured data from a buffer.
+ * @property {function(T, BufferSource, Offset=): BufferSource} bytesFromValue - Writes structured data into a buffer.
+ * @property {Record<string, Field|StructInstance<any>>} fields - Field definitions keyed by field name.
+ * @property {number} size - The total size in bytes of the packed structure.
+ * @property {string|null} name - The name of the struct (if provided).
+ * @property {Record<string, Field>|null} _hoistFields - If this is a nested struct, this maps sub-fields to their definitions.
+ */
+
+// // ---------------------------------------------------------------------
+// //  UMD / factory setup
+// // ---------------------------------------------------------------------
+
 (function (root, factory) {
+    // @ts-ignore
     if (typeof define === 'function' && define.amd) {
         // AMD. Register as an anonymous module.
+        // @ts-ignore
         define([], factory);
     } else if (typeof module === 'object' && module.exports) {
         // Node.js/CommonJS
+        // @ts-ignore - Possibly can't find 'util' in some TS configs.
         module.exports = factory(require('util').TextEncoder, require('util').TextDecoder);
     } else {
         // Browser globals (root is window)
+        // @ts-ignore
         root._ = factory(root.TextEncoder, root.TextDecoder);
     }
-}(typeof self !== 'undefined' ? self : this, function (TextEncoder, TextDecoder) {
+}(typeof self !== 'undefined' ? self : this,
+/**
+ * @param {typeof TextEncoder} _TextEncoder
+ * @param {typeof TextDecoder} _TextDecoder
+ */
+    function (_TextEncoder, _TextDecoder) {
 'use strict';
 
 /**
@@ -24,27 +113,33 @@ var _ = {};
 // Add ECMA262-5 method binding if not supported natively
 // https://github.com/ReactNativeNews/react-native-newsletter/blob/93016f62af32d97cc009f991d4f7c3c7155a4f26/ie.js#L8
 if (!('bind' in Function.prototype)) {
-    // @ts-ignore-error
+    // @ts-ignore
     Function.prototype.bind = function (owner) {
         var that = this;
         if (arguments.length <= 1) {
             return function () {
-                // @ts-ignore-error
+                // @ts-ignore
                 return that.apply(owner, arguments);
             };
         } else {
             var args = Array.prototype.slice.call(arguments, 1);
             return function () {
-                // @ts-ignore-error
-                return that.apply(owner, arguments.length === 0 ? args : args.concat(Array.prototype.slice.call(arguments)));
+                // @ts-ignore
+                return that.apply(
+                    owner,
+                    arguments.length === 0 ? args : args.concat(Array.prototype.slice.call(arguments))
+                );
             };
         }
     };
 }
 
+// // ---------------------------------------------------------------------
+// //  Helper Methods
+// // ---------------------------------------------------------------------
 
 /**
- * Creates a new buffer backed by an ArrayBuffer.
+ * Creates a new Uint8Array of given size backed by an ArrayBuffer.
  *
  * @param {number} size - The size of the buffer in bytes.
  * @returns {Uint8Array} A new Uint8Array of the specified size.
@@ -57,7 +152,7 @@ function newBuffer(size) {
  * Extends an object with properties from subsequent objects.
  *
  * @param {Object} obj - The target object to extend.
- * @returns {Object} The extended object.
+ * @returns {Object} The extended target object.
  */
 function extend(obj) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -95,7 +190,7 @@ function addField(ctr, f) {
  * Converts a field into an array field if a count is provided.
  *
  * @param {Object} f - The field to arrayize.
- * @param {number} count - The number of elements in the array.
+ * @param {number} [count] - The number of elements in the array, if needed.
  * @returns {Object} The arrayized field.
  */
 function arrayizeField(f, count) {
@@ -106,7 +201,7 @@ function arrayizeField(f, count) {
          * Unpacks an array of values from bytes.
          *
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {Array} The unpacked array of values.
          */
         valueFromBytes: function (buf, off) {
@@ -122,7 +217,7 @@ function arrayizeField(f, count) {
          *
          * @param {Array} arr - The array of values to pack.
          * @param {ArrayBuffer|Uint8Array} [buf] - The buffer to write to.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
          */
         bytesFromValue: function (arr, buf, off) {
@@ -133,7 +228,7 @@ function arrayizeField(f, count) {
                 f.bytesFromValue(arr[idx], buf, off);
             }
             while (idx++ < count) addField(off, f);
-            return buf;
+            return /** @type {Uint8Array} */ (buf);
         }
     }, ('width' in f) ? { width: f.width * count } : { size: f.size * count }) : f;
     f2.pack = f2.bytesFromValue;
@@ -141,46 +236,23 @@ function arrayizeField(f, count) {
     return f2;
 }
 
-/**
- * Represents a field definition within a struct.
- *
- * @typedef {Object} Field
- * @property {string} [name] - The name of the field.
- * @property {number} size - The size of the field in bytes (for non-bitfield types).
- * @property {number} [width] - The width of the field in bits (for bitfields).
- * @property {number|{bytes:number, bits:number}} offset - The byte or bit offset of the field in the structure.
- * @property {function((ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): *} valueFromBytes - Unpacks the field value from a buffer.
- * @property {function(*, (ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): (ArrayBuffer|Uint8Array)} bytesFromValue - Packs a value into a buffer.
- * @property {function(*, (ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): (ArrayBuffer|Uint8Array)} pack - Alias for `bytesFromValue`.
- * @property {function((ArrayBuffer|Uint8Array), {bytes:number, bits?:number}=): *} unpack - Alias for `valueFromBytes`.
- * @property {Record<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
- * @property {Record<string, Field>} fields - An object mapping field names to their definitions.
- */
-
-/**
- * Template for the return type of _.struct().
- * This defines a structured binary format and provides methods to serialize and deserialize data.
- *
- * @template T
- * @typedef {Object} StructInstance
- * @property {function(Uint8Array): T} unpack - Deserializes a Uint8Array into the structured object.
- * @property {function(T): Uint8Array} pack - Serializes the structured object into a Uint8Array.
- * @property {function(Uint8Array, Object): T} valueFromBytes - Reads structured data from a Uint8Array buffer.
- * @property {function(T, Uint8Array, Object): Uint8Array} bytesFromValue - Writes structured data into a Uint8Array buffer.
- * @property {Record<string, Field|StructInstance<T>>} fields - An object mapping field names to their definitions.
- * @property {number} size - The total size in bytes of the packed structure.
- * @property {string|null} name - The name of the struct (if provided).
- * @property {Record<string, Field>|null} _hoistFields - If this is a nested struct, this maps sub-fields to their definitions.
- */
-
+// // ---------------------------------------------------------------------
+// //  _.struct Definition
+// // ---------------------------------------------------------------------
 
 /**
  * Defines a new structure with the given fields.
  *
- * @param {string} [name] - The name of the structure.
+ * @overload
  * @param {Array} fields - The array of field definitions.
  * @param {number} [count] - The number of structures in an array.
- * @returns {StructInstance<T>} The defined structure with pack and unpack methods.
+ * @returns {StructInstance<*>} The defined structure with pack and unpack methods.
+ *
+ * @overload
+ * @param {string} name - The name of the structure.
+ * @param {Array} fields - The array of field definitions.
+ * @param {number} [count] - The number of structures in an array.
+ * @returns {StructInstance<*>} The defined structure with pack and unpack methods.
  */
 _.struct = function (name, fields, count) {
     if (typeof name !== 'string') {
@@ -230,8 +302,8 @@ _.struct = function (name, fields, count) {
          * Unpacks a structure from bytes.
          *
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-         * @param {Object} [off] - The offset object with bytes and bits.
-         * @returns {T} The unpacked structure.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
+         * @returns {*} The unpacked structure.
          */
         valueFromBytes: function (buf, off) {
             off || (off = { bytes: 0, bits: 0 });
@@ -248,10 +320,10 @@ _.struct = function (name, fields, count) {
         /**
          * Packs a structure into bytes.
          *
-         * @param {T} obj - The object containing values to pack.
+         * @param {*} obj - The object containing values to pack.
          * @param {ArrayBuffer|Uint8Array} [buf] - The buffer to write to.
-         * @param {Object} [off] - The offset object with bytes and bits.
-         * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
+         * @returns {Uint8Array} The buffer with packed data.
          */
         bytesFromValue: function (obj, buf, off) {
             obj || (obj = {});
@@ -263,7 +335,7 @@ _.struct = function (name, fields, count) {
                 var value = (f.name) ? obj[f.name] : obj;
                 f.bytesFromValue(value, buf, off);
             });
-            return buf;
+            return /** @type {Uint8Array} */ (buf);
         },
         _hoistFields: (!name) ? fieldsObj : null,
         fields: fieldsObj,
@@ -271,6 +343,10 @@ _.struct = function (name, fields, count) {
         name: name
     }, count);
 };
+
+// // ---------------------------------------------------------------------
+// //  Begin Bitfield Helpers
+// // ---------------------------------------------------------------------
 
 /**
  * Reads a truncated unsigned 32-bit integer from a buffer. Used in valueFromBytes for bitfields.
@@ -368,7 +444,7 @@ function bitfield(name, width, count) {
          * Unpacks a bitfield value from bytes.
          *
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {number} The unpacked bitfield value.
          */
         valueFromBytes: function (buf, off) {
@@ -384,7 +460,7 @@ function bitfield(name, width, count) {
          *
          * @param {number} val - The value to pack.
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to write to.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
          */
         bytesFromValue: function (val, buf, off) {
@@ -430,7 +506,7 @@ function bitfieldLE(name, width, count) {
          * Unpacks a bitfield value from bytes.
          *
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {number} The unpacked bitfield value.
          */
         valueFromBytes: function (buf, off) {
@@ -442,7 +518,7 @@ function bitfieldLE(name, width, count) {
 
             // The field bits we want are from "off.bits" up through
             // "off.bits + width - 1" in that 32. That means:
-            var shift = off.bits;  // how many bits already used in that 32
+            var shift = off.bits || 0; // how many bits already used in that 32
             var result = (word >>> shift) & mask;
 
             // Move offset forward by 'width' bits
@@ -455,7 +531,7 @@ function bitfieldLE(name, width, count) {
          *
          * @param {number} val - The value to pack.
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to write to.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
          */
         bytesFromValue: function (val, buf, off) {
@@ -464,7 +540,7 @@ function bitfieldLE(name, width, count) {
             // read existing 32 bits
             var word = truncatedReadUInt32(buf, off.bytes, true) >>> 0;
 
-            var shift = off.bits;
+            var shift = off.bits || 0;
             // Clear out the bits in "mask << shift"
             var clearMask = ~(mask << shift) >>> 0;
             word &= clearMask;
@@ -481,6 +557,11 @@ function bitfieldLE(name, width, count) {
         name: name
     }, count);
 }
+
+// // ---------------------------------------------------------------------
+// //  Begin Bitfield Definitions
+// // ---------------------------------------------------------------------
+
 
 _.bool = function (name, count) {
     return bitfield.call({
@@ -585,19 +666,30 @@ _.sbit = bitfield.bind({        // TODO: handle sign bit…
  * @returns {Object} The defined bytefield.
  */
 function bytefield(name, size, count) {
-    if (typeof name !== 'string') {
-        count = size;
-        size = name;
-        name = null;
+    /** @type {string|null} */
+    var fieldName = null;
+    /** @type {number} */
+    var fieldSize = 1;
+    if (typeof name === 'string') {
+        fieldName = name;
+        if (typeof size === 'number') {
+            fieldSize = size;
+        }
+    } else {
+        // Shift params.
+        fieldSize = name;
+        count = size; // pass along
     }
-    size = (typeof size === 'number') ? size : 1;
     var impl = this;
+
     return arrayizeField({
+        name: fieldName,
+        size: fieldSize,
         /**
          * Unpacks a bytefield from bytes.
          *
          * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {Uint8Array} The unpacked bytefield.
          */
         valueFromBytes: function (buf, off) {
@@ -612,7 +704,7 @@ function bytefield(name, size, count) {
          *
          * @param {ArrayBuffer|Uint8Array} val - The value to pack.
          * @param {ArrayBuffer|Uint8Array} [buf] - The buffer to write to.
-         * @param {Object} [off] - The offset object with bytes and bits.
+         * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
          * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
          */
         bytesFromValue: function (val, buf, off) {
@@ -623,9 +715,7 @@ function bytefield(name, size, count) {
             impl.vTb.call(this, val, blk);
             addField(off, this);
             return buf;
-        },
-        size: size,
-        name: name
+        }
     }, count);
 }
 
@@ -666,6 +756,10 @@ _.byte = bytefield.bind({
     vTb: function (v, b) { if (!v) return 0; b.set(new Uint8Array(v)); return v.byteLength; }
 });
 
+// // ---------------------------------------------------------------------
+// //  Character Field Definitions
+// // ---------------------------------------------------------------------
+
 _.char = bytefield.bind({
     /**
      * Converts bytes to a UTF-8 string.
@@ -675,19 +769,20 @@ _.char = bytefield.bind({
      */
     b2v: function (b) {
         var decoder;
-        if (typeof TextDecoder !== 'undefined') {
-            decoder = new TextDecoder('utf-8');
+        // Use TextDecoder or minimal polyfill.
+        if (typeof _TextDecoder !== 'undefined' && _TextDecoder) {
+            decoder = new _TextDecoder('utf-8');
         } else {
-            var TextDecoder = function (_) { };
-            TextDecoder.prototype.decode = function (buffer) {
-                var bytes = new Uint8Array(buffer);
-                var str = '';
-                for (var i = 0; i < bytes.length; i++) {
-                    str += String.fromCharCode(bytes[i]);
+            decoder = {
+                decode: function (buf) {
+                    var bytes = new Uint8Array(buf);
+                    var str = '';
+                    for (var i = 0; i < bytes.length; i++) {
+                        str += String.fromCharCode(bytes[i]);
+                    }
+                    return str;
                 }
-                return str;
             };
-            decoder = new TextDecoder();
         }
         var v = decoder.decode(b);
         var z = v.indexOf('\0');
@@ -703,18 +798,21 @@ _.char = bytefield.bind({
     vTb: function (v, b) {
         v || (v = '');
         var encoder;
-        if (typeof TextEncoder !== 'undefined') {
-            encoder = new TextEncoder('utf-8');
+        // Use TextEncoder or minimal polyfill.
+        if (typeof _TextEncoder !== 'undefined' && _TextEncoder) {
+            encoder = new _TextEncoder();
         } else {
-            var TextEncoder = function (_) { };
-            TextEncoder.prototype.encode = function (str) {
-                var bytes = new Uint8Array(str.length);
-                for (var i = 0; i < str.length; i++) {
-                    bytes[i] = str.charCodeAt(i);
+            encoder = {
+                // This implementation does not handle
+                // Unicode or surrogate pairs whatsoever.
+                encode: function (str) {
+                    var arr = new Uint8Array(str.length);
+                    for (var i = 0; i < str.length; i++) {
+                        arr[i] = str.charCodeAt(i) & 0xff;
+                    }
+                    return arr;
                 }
-                return bytes;
             };
-            encoder = new TextEncoder();
         }
         var encoded = encoder.encode(v);
         for (var i = 0; i < encoded.length && i < b.length; i++) {
@@ -733,20 +831,21 @@ _.char16le = bytefield.bind({
      */
     b2v: function (b) {
         var decoder;
-        if (typeof TextDecoder !== 'undefined') {
-            decoder = new TextDecoder('utf-16le');
+        // Use TextDecoder or minimal polyfill.
+        if (typeof _TextDecoder !== 'undefined' && _TextDecoder) {
+            decoder = new _TextDecoder('utf-16le');
         } else {
-            var TextDecoder = function (_) { };
-            TextDecoder.prototype.decode = function (buffer) {
-                var bytes = new Uint8Array(buffer);
-                var str = '';
-                for (var i = 0; i < bytes.length; i += 2) {
-                    var charCode = bytes[i] | (bytes[i + 1] << 8);
-                    str += String.fromCharCode(charCode);
+            decoder = {
+                decode: function (buffer) {
+                    var bytes = new Uint8Array(buffer);
+                    var str = '';
+                    for (var i = 0; i < bytes.length; i += 2) {
+                        var charCode = bytes[i] | (bytes[i + 1] << 8);
+                        str += String.fromCharCode(charCode);
+                    }
+                    return str;
                 }
-                return str;
             };
-            decoder = new TextDecoder();
         }
         var v = decoder.decode(b);
         var z = v.indexOf('\0');
@@ -782,20 +881,21 @@ _.char16be = bytefield.bind({
         var temp = new Uint8Array(b);
         swapBytesPairs(temp);
         var decoder;
-        if (typeof TextDecoder !== 'undefined') {
-            decoder = new TextDecoder('utf-16le');
+        // Use TextDecoder or minimal polyfill.
+        if (typeof _TextDecoder !== 'undefined' && _TextDecoder) {
+            decoder = new _TextDecoder('utf-16le');
         } else {
-            var TextDecoder = function (_) { };
-            TextDecoder.prototype.decode = function (buffer) {
-                var bytes = new Uint8Array(buffer);
-                var str = '';
-                for (var i = 0; i < bytes.length; i += 2) {
-                    var charCode = bytes[i] | (bytes[i + 1] << 8);
-                    str += String.fromCharCode(charCode);
+            decoder = {
+                decode: function (buffer) {
+                    var bytes = new Uint8Array(buffer);
+                    var str = '';
+                    for (var i = 0; i < bytes.length; i += 2) {
+                        var charCode = bytes[i] | (bytes[i + 1] << 8);
+                        str += String.fromCharCode(charCode);
+                    }
+                    return str;
                 }
-                return str;
             };
-            decoder = new TextDecoder();
         }
         var v = decoder.decode(temp.buffer);
         var z = v.indexOf('\0');
@@ -822,6 +922,10 @@ _.char16be = bytefield.bind({
     }
 });
 
+// // ---------------------------------------------------------------------
+// //  standardField Definition
+// // ---------------------------------------------------------------------
+
 /**
  * Defines a standard field with specific read and write methods.
  *
@@ -833,7 +937,10 @@ _.char16be = bytefield.bind({
 function standardField(sig, size, littleEndian) {
     var read = 'get' + sig,
         dump = 'set' + sig;
-    size || (size = +sig.match(/\d+/)[0] / 8);
+    // size || (size = +sig.match(/\d+/)[0] / 8); // dynamically get size, not used anymore
+    if (!(read in DataView.prototype) || !(dump in DataView.prototype)) {
+        throw new Error('Invalid DataView method: "' + read + '" or "' + dump + '" does not exist.');
+    }
     return function (name, count) {
         if (typeof name !== 'string') {
             count = name;
@@ -844,7 +951,7 @@ function standardField(sig, size, littleEndian) {
              * Unpacks a standard field from bytes.
              *
              * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-             * @param {Object} [off] - The offset object with bytes and bits.
+             * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
              * @returns {*} The unpacked value.
              */
             valueFromBytes: function (buf, off) {
@@ -860,7 +967,7 @@ function standardField(sig, size, littleEndian) {
              *
              * @param {*} val - The value to pack.
              * @param {ArrayBuffer|Uint8Array} [buf] - The buffer to write to.
-             * @param {Object} [off] - The offset object with bytes and bits.
+             * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
              * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
              */
             bytesFromValue: function (val, buf, off) {
@@ -879,18 +986,25 @@ function standardField(sig, size, littleEndian) {
     };
 }
 
+// // ---------------------------------------------------------------------
+// //  Integer Field Definitions
+// // ---------------------------------------------------------------------
+
+// unsigned
 _.uint8 = standardField('Uint8', 1, false);
 _.uint16 = standardField('Uint16', 2, false);
 _.uint32 = standardField('Uint32', 4, false);
 _.uint16le = standardField('Uint16', 2, true);
 _.uint32le = standardField('Uint32', 4, true);
 
+// signed
 _.int8 = standardField('Int8', 1, false);
 _.int16 = standardField('Int16', 2, false);
 _.int32 = standardField('Int32', 4, false);
 _.int16le = standardField('Int16', 2, true);
 _.int32le = standardField('Int32', 4, true);
 
+// floats
 _.float32 = standardField('Float32', 4, false);
 _.float64 = standardField('Float64', 8, false);
 _.float32le = standardField('Float32', 4, true);
@@ -915,7 +1029,7 @@ _.derive = function (orig, pack, unpack) {
              * Unpacks a derived field from bytes.
              *
              * @param {ArrayBuffer|Uint8Array} buf - The buffer to read from.
-             * @param {Object} [off] - The offset object with bytes and bits.
+             * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
              * @returns {*} The unpacked derived value.
              */
             valueFromBytes: function (buf, off) {
@@ -926,7 +1040,7 @@ _.derive = function (orig, pack, unpack) {
              *
              * @param {*} val - The value to pack.
              * @param {ArrayBuffer|Uint8Array} [buf] - The buffer to write to.
-             * @param {Object} [off] - The offset object with bytes and bits.
+             * @param {{bytes:number, bits?:number}=} off - The offset object with bytes and bits.
              * @returns {ArrayBuffer|Uint8Array} The buffer with packed data.
              */
             bytesFromValue: function (val, buf, off) {
@@ -937,5 +1051,15 @@ _.derive = function (orig, pack, unpack) {
     };
 };
 
+// Return the `_` object for whichever loader environment we're in.
 return _;
 }));
+/*
+// Export for Node.js environments
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = _;
+} else {
+    // Export to global scope for browsers
+    window._ = _;
+}
+*/

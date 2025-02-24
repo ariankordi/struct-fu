@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    //"checkJs": true, // Assumed from @ts-check.
+    "allowUmdGlobalAccess": true, // TODO what does this do?
+    "target": "es5",
+    "module": "umd", // Library is already written to use UMD.
+
+    "strict": false,
+    "noImplicitAny": false, // TODO
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "declaration": true, // Generate only declarations.
+    //"declarationMap": true, // Emits .d.ts.map.
+    "emitDeclarationOnly": true,
+    "outDir": "types" // Emit .d.ts into types.
+  },
+  "include": ["lib.js"] // Only include lib.js.
+}
