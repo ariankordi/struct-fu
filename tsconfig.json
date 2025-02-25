@@ -2,12 +2,12 @@
   "compilerOptions": {
     "allowJs": true,
     //"checkJs": true, // Assumed from @ts-check.
-    "allowUmdGlobalAccess": true, // TODO what does this do?
+    "allowUmdGlobalAccess": true,
     "target": "es5",
     "module": "umd", // Library is already written to use UMD.
 
-    "strict": false,
-    "noImplicitAny": false, // TODO
+    "strict": true,
+    "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
