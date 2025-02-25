@@ -1,23 +1,20 @@
 # struct-fu browser port
 
-This is a port of the excellent struct-fu library to use ArrayBuffers and DataViews so that it works in the browser and still functions in pre-ES6 environments.
+This is a port of the excellent struct-fu library to work universally, even in pre-ES6 browsers.
 
-Other TODOs:
+* Uses ArrayBuffers and DataViews instead of Node `Buffer` (should still work with Buffer though)
+  - Works on the earliest browser I tested that includes support for this, Safari 5.1.
+* Strict typing with JSDoc. TypeScript `.d.ts` declarations are in `types`.
+* `lib.js` is written as a UMD module and should be usable in all environments.
+  - Minified size is 8.6 KB (Closure Compiler / gzip: 3 KB)
+
+Distant TODOs:
 
 * Read more than 24 bit long bitfields
-* eslint/formatting settings
-* (Distant TODOs:)
-  - TypeScript + Babel
-  - _Verify min/max values for fields?_ (Without exceptions)
-  - Further minimize/treeshake???
-  - Import C structs from DWARF???????
-  - Generate functions for packing/unpacking????????
-
-### Known issues with this fork
-* Not using Node Buffers which causes some tests to fail.
-* On Node, Unicode characters don't encode in UTF-8 with `_.char`.
-    - This is because that usually uses TextEncoder for which I made simple polyfill for, and Node is using the polyfill.
-* Tests have not been updated to account for new ubitLE handling.
+* _Verify min/max values for fields?_ (Without exceptions)
+* Further minimize/treeshake (ESM)???
+* Import C structs from DWARF???????
+* Generate pure, raw functions for packing/unpacking????????
 
 # Original README: struct-fu
 

@@ -335,6 +335,88 @@ assert(unpackedShortStruct.a === 1, "First bit in unpacked < 32 bit structs is u
 assert(unpackedShortStruct.b === 2, "Second bit in unpacked < 32 bit structs is unpacked correctly");
 assert(unpackedShortStruct.c === 3, "Third bit in unpacked < 32 bit structs is unpacked correctly");
 
+// -------------- FFLStoreData decode and re-encode sanity check --------------
+
+var FFLStoreData = _.struct([
+    _.ubitLE('miiVersion', 8), _.ubitLE('copyable', 1), _.ubitLE('ngWord', 1), _.ubitLE('regionMove', 2),
+    _.ubitLE('fontRegion', 2), _.ubitLE('reserved_0', 2), _.ubitLE('roomIndex', 4), _.ubitLE('positionInRoom', 4),
+    _.ubitLE('authorType', 4), _.ubitLE('birthPlatform', 3), _.ubitLE('reserved_1', 1),
+
+    _.struct('authorID', [ _.uint8('data', 8) ]),
+    _.struct('createID', [ _.uint8('data', 10) ]), _.uint8('reserved_2', 2),
+
+    _.ubitLE('gender', 1), _.ubitLE('birthMonth', 4), _.ubitLE('birthDay', 5), _.ubitLE('favoriteColor', 4),
+    _.ubitLE('favorite', 1), _.ubitLE('padding_0', 1), _.char16le('name', 20), _.uint8('height'), _.uint8('build'),
+
+    _.ubitLE('localonly', 1), _.ubitLE('faceType', 4), _.ubitLE('faceColor', 3), _.ubitLE('faceTex', 4),
+    _.ubitLE('faceMake', 4), _.ubitLE('hairType', 8), _.ubitLE('hairColor', 3), _.ubitLE('hairFlip', 1), _.ubitLE('padding_1', 4),
+
+    _.ubitLE('eyeType', 6), _.ubitLE('eyeColor', 3), _.ubitLE('eyeScale', 4), _.ubitLE('eyeAspect', 3),
+    _.ubitLE('eyeRotate', 5), _.ubitLE('eyeX', 4), _.ubitLE('eyeY', 5), _.ubitLE('padding_2', 2),
+
+    _.ubitLE('eyebrowType', 5), _.ubitLE('eyebrowColor', 3), _.ubitLE('eyebrowScale', 4), _.ubitLE('eyebrowAspect', 3),
+    _.ubitLE('padding_3', 1), _.ubitLE('eyebrowRotate', 5), _.ubitLE('eyebrowX', 4), _.ubitLE('eyebrowY', 5), _.ubitLE('padding_4', 2),
+
+    _.ubitLE('noseType', 5), _.ubitLE('noseScale', 4), _.ubitLE('noseY', 5), _.ubitLE('padding_5', 2),
+    _.ubitLE('mouthType', 6), _.ubitLE('mouthColor', 3), _.ubitLE('mouthScale', 4), _.ubitLE('mouthAspect', 3), _.ubitLE('mouthY', 5),
+
+    _.ubitLE('mustacheType', 3), _.ubitLE('padding_6', 8), _.ubitLE('beardType', 3), _.ubitLE('beardColor', 3),
+    _.ubitLE('beardScale', 4), _.ubitLE('beardY', 5), _.ubitLE('padding_7', 1),
+
+    _.ubitLE('glassType', 4), _.ubitLE('glassColor', 3), _.ubitLE('glassScale', 4), _.ubitLE('glassY', 5),
+    _.ubitLE('moleType', 1), _.ubitLE('moleScale', 4), _.ubitLE('moleX', 5), _.ubitLE('moleY', 5), _.ubitLE('padding_8', 1),
+
+    _.char16le('creatorName', 20), _.uint16le('padding_9'), _.uint16('crc')
+]);
+
+// NOTE: if you use _.byte it'll decode to Buffer??
+
+// Expected to have non-ASCII names and a corresponding storeDataObj member.
+var _storeDataBuffer = [
+    // JasmineChlora
+    bufferFrom('AwAAQKBBOMSghAAA27iHMb5gKyoqQgAAWS1KAGEAcwBtAGkAbgBlAAAAAAAAABw3EhB7ASFuQxwNZMcYAAgegg0AMEGzW4JtAABvAHMAaQBnAG8AbgBhAGwAAAAAAJA6', 'base64'),
+    // chacha12_1101
+    bufferFrom('AwAFMG0rAiKJRLe1nDWwN5i26X5uuAAAY0FjAGgAYQByAGwAaQBuAGUAAAAAAEwmApBlBttoRBggNEYUgRITYg0AACkAUkhQYwBoAGEAcgBsAGkAbgBlAAAAAAAAAHLb', 'base64')
+];
+var _storeDataObj = [
+    {"miiVersion":3,"copyable":0,"ngWord":0,"regionMove":0,"fontRegion":0,"reserved_0":0,"roomIndex":0,"positionInRoom":0,"authorType":0,"birthPlatform":4,"reserved_1":0,"authorID":{"data":[160,65,56,196,160,132,0,0]},"createID":{"data":[219,184,135,49,190,96,43,42,42,66]},"reserved_2":[0,0],"gender":1,"birthMonth":12,"birthDay":10,"favoriteColor":11,"favorite":0,"padding_0":0,"name":"Jasmine","height":28,"build":55,"localonly":0,"faceType":9,"faceColor":0,"faceTex":0,"faceMake":1,"hairType":123,"hairColor":1,"hairFlip":0,"padding_1":0,"eyeType":33,"eyeColor":0,"eyeScale":7,"eyeAspect":3,"eyeRotate":3,"eyeX":2,"eyeY":14,"padding_2":0,"eyebrowType":13,"eyebrowColor":0,"eyebrowScale":4,"eyebrowAspect":6,"padding_3":0,"eyebrowRotate":7,"eyebrowX":6,"eyebrowY":12,"padding_4":0,"noseType":0,"noseScale":0,"noseY":4,"padding_5":0,"mouthType":30,"mouthColor":0,"mouthScale":1,"mouthAspect":4,"mouthY":13,"mustacheType":0,"padding_6":0,"beardType":0,"beardColor":6,"beardScale":4,"beardY":16,"padding_7":0,"glassType":3,"glassColor":3,"glassScale":7,"glassY":11,"moleType":0,"moleScale":1,"moleX":12,"moleY":27,"padding_8":0,"creatorName":"\u0000osigonal","padding_9":0,"crc":36922}, // Creator name is not null terminated.
+    {"miiVersion":3,"copyable":0,"ngWord":0,"regionMove":0,"fontRegion":0,"reserved_0":0,"roomIndex":5,"positionInRoom":0,"authorType":0,"birthPlatform":3,"reserved_1":0,"authorID":{"data":[109,43,2,34,137,68,183,181]},"createID":{"data":[156,53,176,55,152,182,233,126,110,184]},"reserved_2":[0,0],"gender":1,"birthMonth":1,"birthDay":11,"favoriteColor":0,"favorite":1,"padding_0":0,"name":"charline","height":76,"build":38,"localonly":0,"faceType":1,"faceColor":0,"faceTex":0,"faceMake":9,"hairType":101,"hairColor":6,"hairFlip":0,"padding_1":0,"eyeType":27,"eyeColor":3,"eyeScale":4,"eyeAspect":3,"eyeRotate":4,"eyeX":2,"eyeY":12,"padding_2":0,"eyebrowType":0,"eyebrowColor":1,"eyebrowScale":4,"eyebrowAspect":3,"padding_3":0,"eyebrowRotate":6,"eyebrowX":2,"eyebrowY":10,"padding_4":0,"noseType":1,"noseScale":4,"noseY":9,"padding_5":0,"mouthType":19,"mouthColor":0,"mouthScale":1,"mouthAspect":3,"mouthY":13,"mustacheType":0,"padding_6":0,"beardType":0,"beardColor":0,"beardScale":4,"beardY":10,"padding_7":0,"glassType":0,"glassColor":0,"glassScale":4,"glassY":10,"moleType":0,"moleScale":4,"moleX":2,"moleY":20,"padding_8":0,"creatorName":"charline","padding_9":0,"crc":29403}
+];
+
+/**
+ * Check if all characters are ASCII.
+ * @param {string} str
+ * @returns {boolean}
+ */
+function isAscii(str) {
+    return /^[\x00-\x7F]*$/.test(str);
+}
+
+_storeDataBuffer.forEach((buf, i) => {
+    var decoded = FFLStoreData.unpack(buf);
+    var expected = _storeDataObj[i];
+
+    // Make a clone of expected.
+    var expectedWithoutStrings = Object.assign({}, expected);
+    // Special case for string fields.
+    ['name', 'creatorName'].forEach(/** @param {string} field */ (field) => {
+        // Validate that there are no strange non-ASCII characters.
+        // The test data only has ASCII names, this is just a sanity test
+        assert(isAscii(decoded[field]), 'Field ' + field + ' in FFLStoreData only has ASCII characters');
+        // Clear from comparison, they are not null terminated usually
+        decoded[field] = ''; // Clear field.
+        expectedWithoutStrings[field] = '';
+    });
+
+    var match = JSON.stringify(decoded) === JSON.stringify(expectedWithoutStrings);
+    assert(match, 'FFLStoreData index ' + i + ' unpacked to object matches');
+
+    var rePacked = FFLStoreData.pack(expected); // Pack expected since we know it's equal
+    var reMatch = new Uint8Array(rePacked).toString() === new Uint8Array(buf).toString();
+    assert(reMatch, 'FFLStoreData index ' + i + ' repacked matches');
+});
+
+// ------------------ Show results and print from failedMsg ------------------
 
 if (failedMsg.length > 0) {
     console.log("\n\u001b[1m\u001b[31mSome tests failed!!!\u001b[1m\u001b[0m");
