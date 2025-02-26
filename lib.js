@@ -1,5 +1,13 @@
 // @ts-check
 
+/*!
+ * struct-fu library: https://github.com/natevw/struct-fu
+ * forked by ariankordi: https://github.com/ariankordi/struct-fu
+ * @author Nathan Vander Wilt <https://github.com/natevw>
+ * @license Apache-2.0
+ * @license BSD-2-Clause
+ */
+
 // // ---------------------------------------------------------------------
 // //  Exported JSDoc Type Definitions
 // // ---------------------------------------------------------------------
@@ -60,12 +68,10 @@
  * @property {number} size - The size of the field in bytes (for non-bitfield types).
  * @property {number} [width] - The size of the field in bits (for bitfields).
  * @property {number | Offset} [offset] - Byte or (byte,bits) offset.
- * @property {function(BufferSource, Offset=): *} valueFromBytes - Unpacks the field value from a buffer.
- * @property {function(*, BufferSource, Offset=): BufferSource} bytesFromValue - Packs a value into a buffer.
- * @property {Record<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
- * @property {Record<string, Field>} [fields] - An object mapping field names to their definitions.
- * @property {function(*, BufferSource, Offset=): BufferSource} [pack] - Alias for `bytesFromValue`. This is only defined in arrayizeField().
- * @property {function(BufferSource, Offset=): *} [unpack] - Alias for `valueFromBytes`. This is only defined in arrayizeField().
+ * @property {function(BufferSource, Offset=): *} unpack - Unpacks the field value from a buffer (`valueFromBytes`).
+ * @property {function(*, BufferSource, Offset=): BufferSource} pack - Packs a value into a buffer (`bytesFromValue`).
+ * @property {Object.<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
+ * @property {Object.<string, Field>} [fields] - An object mapping field names to their definitions.
  */
 
 /**
@@ -73,15 +79,13 @@
  * It is generic in case you want to define a typed object for the data.
  *
  * @template T
- * @typedef {Field & Object} StructInstance
- * @property {function(BufferSource): T} unpack - Deserialize from a BufferSource into the structured object.
- * @property {function(T): Uint8Array} pack - Serialize the structured object into a Uint8Array.
- * @property {function(BufferSource, Offset=): T} valueFromBytes - Reads structured data from a buffer.
- * @property {function(T, BufferSource, Offset=): BufferSource} bytesFromValue - Writes structured data into a buffer.
- * @property {Record<string, Field>} fields - Field definitions keyed by field name.
+ * @typedef StructInstance
+ * @property {function(BufferSource, Offset=): T} unpack - Deserialize from a BufferSource into the structured object.
+ * @property {function(T, BufferSource=, Offset=): Uint8Array} pack - Serialize the structured object into a Uint8Array.
+ * @property {Object.<string, Field>} fields - Field definitions keyed by field name.
  * @property {number} size - The total size in bytes of the packed structure.
- * @property {string|null} name - The name of the struct (if provided).
- * @property {Record<string, Field>|null} _hoistFields - If this is a nested struct, this maps sub-fields to their definitions.
+ * @property {string} [name] - The name of the struct (if provided).
+ * @property {Object.<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
  */
 
 // // ---------------------------------------------------------------------
@@ -206,7 +210,7 @@ function addField(ctr, f) {
  * @returns {Field} The arrayized field.
  */
 function arrayizeField(f, count) {
-    var f2 = (typeof count === 'number') ? /** @type {Field} */ (extend({
+    var field = (typeof count === 'number') ? /** @type {Field} */ (extend({
         name: f.name,
         field: f,
         /**
@@ -216,11 +220,11 @@ function arrayizeField(f, count) {
          * @param {Cursor} off - The offset object with bytes and bits.
          * @returns {Array<*>} The unpacked array of values.
          */
-        valueFromBytes: function (buf, off) {
+        unpack: function (buf, off) {
             off || (off = { bytes: 0, bits: 0 });
             var arr = new Array(count);
             for (var idx = 0, len = arr.length; idx < len; idx += 1) {
-                arr[idx] = f.valueFromBytes(buf, off);
+                arr[idx] = f.unpack(buf, off);
             }
             return arr;
         },
@@ -232,12 +236,12 @@ function arrayizeField(f, count) {
          * @returns {BufferSource}
          * @this {Field}
          */
-        bytesFromValue: function (arr, buf, off) {
+        pack: function (arr, buf, off) {
             arr || (arr = new Array(count));
             buf || (buf = newBuffer(this.size));
             off || (off = { bytes: 0, bits: 0 });
             for (var idx = 0, len = Math.min(arr.length, count); idx < len; idx += 1) {
-                f.bytesFromValue(arr[idx], buf, off);
+                f.pack(arr[idx], buf, off);
             }
             while (idx++ < count) addField(off, f);
             return /** @type {Uint8Array} */ (buf);
@@ -246,10 +250,7 @@ function arrayizeField(f, count) {
         ? { width: f.width * count }
         : { size: f.size * count })
     ) : f;
-    // Create aliases for pack and unpack.
-    f2.pack = f2.bytesFromValue;
-    f2.unpack = f2.valueFromBytes;
-    return f2;
+    return field;
 }
 
 // // ---------------------------------------------------------------------
@@ -286,7 +287,7 @@ _.struct = function (name, fields, count) {
 
     var _size = { bytes: 0, bits: 0 };
     var _padsById = Object.create(null);
-    /** @type {Record<string, Field>} */
+    /** @type {Object.<string, Field>} */
     var fieldsObj = fieldDefs.reduce(/** @param {Object.<string, Field>} obj */ function (obj, f) {
         // Handle _padTo:
         if ('_padTo' in f) {
@@ -358,17 +359,17 @@ _.struct = function (name, fields, count) {
          * @param {Cursor} [off]
          * @returns {*}
          */
-        valueFromBytes: function (buf, off) {
+        unpack: function (buf, off) {
             off = off || { bytes: 0, bits: 0 };
             /** @type {Object.<string, Field>} */
             var obj = {};
             fieldDefs.forEach(function (f) {
                 if ('_padTo' in f && /** @type {PaddingField} */ (f)._id !== undefined) {
                     // It's a pad spec; retrieve the pad field from _padsById.
-                    addField(off, _padsById[/** @type {PaddingField} */ (f)._id]);
+                    addField(/** @type {Cursor} */ (off), _padsById[/** @type {PaddingField} */ (f)._id]);
                     return;
                 }
-                var value = f.valueFromBytes(buf, off);
+                var value = f.unpack(buf, off);
                 if (f.name) {
                     obj[f.name] = value;
                 } else if (typeof value === 'object') {
@@ -385,7 +386,7 @@ _.struct = function (name, fields, count) {
          * @param {Cursor} [off]
          * @returns {Uint8Array}
          */
-        bytesFromValue: function (obj, buf, off) {
+        pack: function (obj, buf, off) {
             obj = obj || {};
             if (!buf) {
                 buf = newBuffer(this.size);
@@ -393,11 +394,11 @@ _.struct = function (name, fields, count) {
             off = off || { bytes: 0, bits: 0 };
             fieldDefs.forEach(function (f) {
                 if ('_padTo' in f && /** @type {PaddingField} */ (f)._id !== undefined) {
-                    addField(off, _padsById[/** @type {PaddingField} */ (f)._id]);
+                    addField(/** @type {Cursor} */ (off), _padsById[/** @type {PaddingField} */ (f)._id]);
                     return;
                 }
                 var value = f.name ? obj[f.name] : obj;
-                f.bytesFromValue(value, buf, off);
+                f.pack(value, /** @type {BufferSource} */ (buf), off);
             });
             return /** @type {Uint8Array} */ (buf);
         },
@@ -417,7 +418,8 @@ _.struct = function (name, fields, count) {
 // // ---------------------------------------------------------------------
 
 /**
- * Reads a truncated unsigned 32-bit integer from a buffer. Used in valueFromBytes for bitfields.
+ * Reads a 32-bit unsigned int from buffer, but handles short lengths by not reading beyond the buffer.
+ * Used in valueFromBytes by bitfield logic.
  *
  * @param {BufferSource} buffer - The buffer to read from.
  * @param {number} offset - The byte offset to start reading.
@@ -425,7 +427,7 @@ _.struct = function (name, fields, count) {
  * @returns {number} The read unsigned 32-bit integer.
  */
 function truncatedReadUInt32(buffer, offset, littleEndian) {
-    var bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
+    var bytes = (buffer instanceof ArrayBuffer) ? new Uint8Array(buffer) : buffer;
     var availableBytes = bytes.length - offset;
     var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
@@ -441,13 +443,13 @@ function truncatedReadUInt32(buffer, offset, littleEndian) {
         return view.getUint16(offset, littleEndian) << (littleEndian ? 0 : 16) >>> 0;
     } else if (availableBytes === 1) {
         return view.getUint8(offset) << (littleEndian ? 0 : 24) >>> 0;
-    } else {
-        return 0x0;
     }
+    return 0x0;
 }
 
 /**
- * Writes a truncated unsigned 32-bit integer to a buffer. Used in bytesFromValue for bitfields.
+ * Writes a 32-bit unsigned int to buffer, but handles short lengths by not writing beyond the buffer.
+ * Used in bytesFromValue/pack by bitfield logic.
  *
  * @param {BufferSource} buffer - The buffer to write to.
  * @param {number} offset - The byte offset to start writing.
@@ -455,7 +457,7 @@ function truncatedReadUInt32(buffer, offset, littleEndian) {
  * @param {boolean} littleEndian - Indicates whether to write little-endian.
  */
 function truncatedWriteUInt32(buffer, offset, data, littleEndian) {
-    var bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
+    var bytes = (buffer instanceof ArrayBuffer) ? new Uint8Array(buffer) : buffer;
     var availableBytes = bytes.length - offset;
     var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
@@ -477,18 +479,19 @@ function truncatedWriteUInt32(buffer, offset, data, littleEndian) {
 }
 
 /**
- * Defines a padding field up to the specified offset.
+ * Defines a padding field up to the specified offset in bytes.
  *
  * @param {number} off - The byte offset to pad to.
  * @returns {Field & {_padTo: number, _id?: string}} The padding field definition.
  */
 _.padTo = function (off) {
-    return /** @type {Field & {_padTo: number}} */ ({ _padTo: off,
+    var field = /** @type {Field & {_padTo: number}} */ ({ _padTo: off,
         // Dummy implementations to satisfy Field:
         size: 0,
-        valueFromBytes: function () { return null; },
-        bytesFromValue: function () { return newBuffer(0); }
+        unpack: function () { return null; },
+        pack: function () { return newBuffer(0); }
     });
+    return field;
 };
 
 
@@ -527,7 +530,7 @@ function bitfield(name, width, count) {
          * @returns {number|boolean}
          * @this {Field & {width: number}} Width is always defined here.
          */
-        valueFromBytes: function (buf, off) {
+        unpack: function (buf, off) {
             off = off || { bytes: 0, bits: 0 };
             var over;
             if (littleEndian) {
@@ -535,7 +538,7 @@ function bitfield(name, width, count) {
                 var word = truncatedReadUInt32(buf, off.bytes, true) >>> 0;
                 over = (word >>> end);
             } else {
-                var end = (off.bits || 0) + width;
+                var end = (off.bits || 0) + /** @type {number} */ (width);
                 var word = truncatedReadUInt32(buf, off.bytes, false) || 0;
                 over = word >>> (32 - end);
             }
@@ -549,7 +552,7 @@ function bitfield(name, width, count) {
          * @returns {BufferSource}
          * @this {Field & {width: number}} Width is always defined here.
          */
-        bytesFromValue: function (val, buf, off) {
+        pack: function (val, buf, off) {
             val = impl.v2b.call(this, val || 0);
             off = off || { bytes: 0, bits: 0 };
             if (littleEndian) {
@@ -561,7 +564,7 @@ function bitfield(name, width, count) {
                 word = (word | over) >>> 0; // WORKAROUND: https:thub.com/tessel/runtime/issues/644
                 truncatedWriteUInt32(buf, off.bytes, word, true);
             } else {
-                var end = (off.bits || 0) + width;
+                var end = (off.bits || 0) + /** @type {number} */ (width);
                 var word = truncatedReadUInt32(buf, off.bytes, false) || 0;
                 var zero = mask << (32 - end);
                 var over = (val & mask) << (32 - end);
@@ -607,6 +610,9 @@ _.bool = function (name, count) {
     }, name, 1, count);
 };
 
+/**
+ * Unsigned bitfield (big-endian).
+ */
 _.ubit = bitfield.bind({
     /**
      * Converts a bitfield to a value.
@@ -625,7 +631,7 @@ _.ubit = bitfield.bind({
 });
 
 /**
- * Defines a little-endian bitfield.
+ * Unsigned bitfield (little-endian).
  *
  * @param {string} name - The name of the bitfield.
  * @param {number} [width=1] - The width of the bitfield in bits.
@@ -651,7 +657,7 @@ _.ubitLE = bitfield.bind({
 });
 
 /**
- * Defines a signed bitfield.
+ * Signed bitfield (big-endian).
  *
  * @param {string} name - The name of the bitfield.
  * @param {number} [width=1] - The width of the bitfield in bits.
@@ -719,7 +725,7 @@ function bytefield(name, size, count) {
          * @param {Cursor} [off]
          * @returns {Uint8Array}
          */
-        valueFromBytes: function (buf, off) {
+        unpack: function (buf, off) {
             off = off || { bytes: 0, bits: 0 };
             var bytes = (buf instanceof ArrayBuffer) ? new Uint8Array(buf) : buf;
             var val = bytes.subarray(off.bytes, off.bytes + /** @type {number} */ (this.size));
@@ -733,7 +739,7 @@ function bytefield(name, size, count) {
          * @param {Cursor} [off]
          * @returns {BufferSource}
          */
-        bytesFromValue: function (val, buf, off) {
+        pack: function (val, buf, off) {
             if (!buf) {
                 buf = newBuffer(/** @type {number} */ (this.size));
             }
@@ -784,6 +790,7 @@ function swapBytesPairs(fromBuffer, toBuffer) {
     return toBuffer;
 }
 
+/** Basic raw byte field. */
 _.byte = bytefield.bind({
     /**
      * Converts bytes to a value.
@@ -806,6 +813,7 @@ _.byte = bytefield.bind({
 // //  Character Field Definitions
 // // ---------------------------------------------------------------------
 
+/** Null-terminated UTF-8 string field. */
 _.char = bytefield.bind({
     /**
      * Converts bytes to a UTF-8 string.
@@ -866,6 +874,7 @@ _.char = bytefield.bind({
     }
 });
 
+/** Null-terminated UTF-16LE string field. */
 _.char16le = bytefield.bind({
     /**
      * Converts bytes to a UTF-16LE string.
@@ -914,6 +923,7 @@ _.char16le = bytefield.bind({
     }
 });
 
+/** Null-terminated UTF-16BE string field. */
 _.char16be = bytefield.bind({
     /**
      * Converts bytes to a UTF-16BE string.
@@ -941,7 +951,7 @@ _.char16be = bytefield.bind({
                 }
             };
         }
-        var v = decoder.decode(temp.buffer);
+        var v = decoder.decode(/** @type {ArrayBuffer} */ (temp.buffer));
         var z = v.indexOf('\0');
         return (~z) ? v.slice(0, z) : v;
     },
@@ -977,7 +987,7 @@ _.char16be = bytefield.bind({
  * @param {function(this:DataView, number, number, boolean):void} setFn - The DataView setter.
  * @param {number} size - The size of the field in bytes (4 for Uint32, etc.).
  * @param {boolean} littleEndian - Indicates whether or not the field is little endian.
- * @returns {(name: string|number, count?: number) => Field} A function to create the field.
+ * @returns {function(string|number, number=): Field} A function to create the field.
  */
 function dataViewField(getFn, setFn, size, littleEndian) {
     return function (name, count) {
@@ -999,7 +1009,7 @@ function dataViewField(getFn, setFn, size, littleEndian) {
              * @param {Cursor} [off]
              * @returns {number}
              */
-            valueFromBytes: function (buf, off) {
+            unpack: function (buf, off) {
                 off = off || { bytes: 0 };
                 var bytes = (buf instanceof ArrayBuffer) ? new Uint8Array(buf) : buf;
                 var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -1013,7 +1023,7 @@ function dataViewField(getFn, setFn, size, littleEndian) {
              * @param {Cursor} [off]
              * @returns {BufferSource}
              */
-            bytesFromValue: function (val, buf, off) {
+            pack: function (val, buf, off) {
                 if (val === undefined || val === null) {
                     val = 0;
                 }
@@ -1064,7 +1074,7 @@ _.float64le = dataViewField(DV.getFloat64, DV.setFloat64, 8, true);
  * @param {Field} orig - The original field to derive from.
  * @param {function(*): *} pack - The function to pack the derived value.
  * @param {function(*): *} unpack - The function to unpack the derived value.
- * @returns {(name?: string|number, count?: number) => Field} A function to create the derived field.
+ * @returns {function(string|number=, number=): Field} A function to create the derived field.
  */
 _.derive = function (orig, pack, unpack) {
     return function (name, count) {
@@ -1082,8 +1092,8 @@ _.derive = function (orig, pack, unpack) {
              * @param {Cursor} [off]
              * @returns {*}
              */
-            valueFromBytes: function (buf, off) {
-                var rawVal = orig.valueFromBytes(buf, off);
+            unpack: function (buf, off) {
+                var rawVal = orig.unpack(buf, off);
                 return unpack(rawVal);
             },
             /**
@@ -1092,9 +1102,9 @@ _.derive = function (orig, pack, unpack) {
              * @param {Cursor} [off]
              * @returns {BufferSource}
              */
-            bytesFromValue: function (val, buf, off) {
+            pack: function (val, buf, off) {
                 var packed = pack(val);
-                return orig.bytesFromValue(packed, buf, off);
+                return orig.pack(packed, buf, off);
             },
             name: fieldName
         },
@@ -1102,9 +1112,6 @@ _.derive = function (orig, pack, unpack) {
             ? { width: orig.width }
             : { size: orig.size }
         ));
-
-        derived.pack = derived.bytesFromValue;
-        derived.unpack = derived.valueFromBytes;
 
         return arrayizeField(derived, count);
     };

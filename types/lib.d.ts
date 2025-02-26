@@ -16,7 +16,7 @@ declare namespace _exports {
      */
     function struct(name: string | Array<Field>, fields?: Array<Field | StructInstance<any>> | number, count?: number): StructInstance<any>;
     /**
-     * Defines a padding field up to the specified offset.
+     * Defines a padding field up to the specified offset in bytes.
      *
      * @param {number} off - The byte offset to pad to.
      * @returns {Field & {_padTo: number, _id?: string}} The padding field definition.
@@ -39,20 +39,20 @@ declare namespace _exports {
     let char: (name: string | number, size?: number | undefined, count?: number | undefined) => Field & ByteTransform;
     let char16le: (name: string | number, size?: number | undefined, count?: number | undefined) => Field & ByteTransform;
     let char16be: (name: string | number, size?: number | undefined, count?: number | undefined) => Field & ByteTransform;
-    let uint8: (name: string | number, count?: number) => Field;
-    let uint16: (name: string | number, count?: number) => Field;
-    let uint32: (name: string | number, count?: number) => Field;
-    let uint16le: (name: string | number, count?: number) => Field;
-    let uint32le: (name: string | number, count?: number) => Field;
-    let int8: (name: string | number, count?: number) => Field;
-    let int16: (name: string | number, count?: number) => Field;
-    let int32: (name: string | number, count?: number) => Field;
-    let int16le: (name: string | number, count?: number) => Field;
-    let int32le: (name: string | number, count?: number) => Field;
-    let float32: (name: string | number, count?: number) => Field;
-    let float64: (name: string | number, count?: number) => Field;
-    let float32le: (name: string | number, count?: number) => Field;
-    let float64le: (name: string | number, count?: number) => Field;
+    let uint8: (arg0: string | number, arg1?: number | undefined) => Field;
+    let uint16: (arg0: string | number, arg1?: number | undefined) => Field;
+    let uint32: (arg0: string | number, arg1?: number | undefined) => Field;
+    let uint16le: (arg0: string | number, arg1?: number | undefined) => Field;
+    let uint32le: (arg0: string | number, arg1?: number | undefined) => Field;
+    let int8: (arg0: string | number, arg1?: number | undefined) => Field;
+    let int16: (arg0: string | number, arg1?: number | undefined) => Field;
+    let int32: (arg0: string | number, arg1?: number | undefined) => Field;
+    let int16le: (arg0: string | number, arg1?: number | undefined) => Field;
+    let int32le: (arg0: string | number, arg1?: number | undefined) => Field;
+    let float32: (arg0: string | number, arg1?: number | undefined) => Field;
+    let float64: (arg0: string | number, arg1?: number | undefined) => Field;
+    let float32le: (arg0: string | number, arg1?: number | undefined) => Field;
+    let float64le: (arg0: string | number, arg1?: number | undefined) => Field;
     /**
      * Derives a new field based on an existing one with custom pack and unpack functions.
      * The types are intentionally any.
@@ -60,9 +60,9 @@ declare namespace _exports {
      * @param {Field} orig - The original field to derive from.
      * @param {function(*): *} pack - The function to pack the derived value.
      * @param {function(*): *} unpack - The function to unpack the derived value.
-     * @returns {(name?: string|number, count?: number) => Field} A function to create the derived field.
+     * @returns {function(string|number=, number=): Field} A function to create the derived field.
      */
-    function derive(orig: Field, pack: (arg0: any) => any, unpack: (arg0: any) => any): (name?: string | number, count?: number) => Field;
+    function derive(orig: Field, pack: (arg0: any) => any, unpack: (arg0: any) => any): (arg0: (string | number) | undefined, arg1: number | undefined) => Field;
 }
 export = _exports;
 /**
@@ -169,13 +169,13 @@ type Field = {
      */
     offset?: number | Offset | undefined;
     /**
-     * - Unpacks the field value from a buffer.
+     * - Unpacks the field value from a buffer (`valueFromBytes`).
      */
-    valueFromBytes: (arg0: BufferSource, arg1: Offset | undefined) => any;
+    unpack: (arg0: BufferSource, arg1: Offset | undefined) => any;
     /**
-     * - Packs a value into a buffer.
+     * - Packs a value into a buffer (`bytesFromValue`).
      */
-    bytesFromValue: (arg0: any, arg1: BufferSource, arg2: Offset | undefined) => BufferSource;
+    pack: (arg0: any, arg1: BufferSource, arg2: Offset | undefined) => BufferSource;
     /**
      * - If this is a nested struct, this maps sub-fields to their definitions.
      */
@@ -184,17 +184,34 @@ type Field = {
      * - An object mapping field names to their definitions.
      */
     fields?: Record<string, Field> | undefined;
-    /**
-     * - Alias for `bytesFromValue`. This is only defined in arrayizeField().
-     */
-    pack?: ((arg0: any, arg1: BufferSource, arg2?: Offset | undefined) => BufferSource) | undefined;
-    /**
-     * - Alias for `valueFromBytes`. This is only defined in arrayizeField().
-     */
-    unpack?: ((arg0: BufferSource, arg1?: Offset | undefined) => any) | undefined;
 };
 /**
  * Template for the return type of _.struct(), representing an instance of a structure with pack/unpack methods.
  * It is generic in case you want to define a typed object for the data.
  */
-type StructInstance<T> = Field & Object;
+type StructInstance<T> = {
+    /**
+     * - Deserialize from a BufferSource into the structured object.
+     */
+    unpack: (arg0: BufferSource, arg1: Offset | undefined) => T;
+    /**
+     * - Serialize the structured object into a Uint8Array.
+     */
+    pack: (arg0: T, arg1: BufferSource | undefined, arg2: Offset | undefined) => Uint8Array;
+    /**
+     * - Field definitions keyed by field name.
+     */
+    fields: Record<string, Field>;
+    /**
+     * - The total size in bytes of the packed structure.
+     */
+    size: number;
+    /**
+     * - The name of the struct (if provided).
+     */
+    name?: string | undefined;
+    /**
+     * - If this is a nested struct, this maps sub-fields to their definitions.
+     */
+    _hoistFields?: Record<string, Field> | null | undefined;
+};

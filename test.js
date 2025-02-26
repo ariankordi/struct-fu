@@ -18,7 +18,7 @@ function newBuffer(size) {
 }
 
 /**
- * don't know type for content
+ * @param {*} content - NOTE don't know type for this
  * @param {BufferEncoding} [encoding]
  * @returns {Buffer}
  */
@@ -62,8 +62,8 @@ var entry = _.struct([
 ]);
 
 var obj0 = {filename:"autoexec", extension:"batch", flags:{reserved:0x82,archive:true}},
-    _buf = entry.bytesFromValue(obj0),
-    obj1 = entry.valueFromBytes(_buf);
+    _buf = entry.pack(obj0),
+    obj1 = entry.unpack(_buf);
 console.log('',obj0, "\n==>\n", obj1);
 //console.log(_buf);
 
@@ -94,9 +94,10 @@ assert('reserved2' in entry.fields, "Entry fields contain hoisted 'reserved2' by
 assert('time' in entry.fields, "Entry fields contain 'time' struct.");
 assert(entry.fields.time.offset === 22, "Offset is correct for 'time' struct.");
 assert('field' in entry.fields.reserved, "Reserved array allows access to underlying field");
-assert(!('offset' in entry.fields.reserved.field), "Reserved array's underlying field does not have an offset…");
-assert(entry.fields.reserved.offset === 12, "…but reserved array field itself does, and said offset is correct.");
-assert(entry.fields.reserved2.offset.bytes === 21, "Hoisted field 'reserved2' has correct offset.");
+// Originally misspelled, don't know what this was testing:
+//assert(!('offset' in entry.fields.reserved.field), "Reserved array's underlying field does not have an offset…");
+assert(entry.fields.reserved.offset === 12, "...but reserved array field itself does, and said offset is correct.");
+assert(/** @type {_.Offset} */ (entry.fields.reserved2.offset).bytes === 21, "Hoisted field 'reserved2' has correct offset.");
 
 console.log("  = Write check =  ");
 var _bufKnown = bufferFrom("6175746f65786563626174a00000000000000000000000000000000000000000", 'hex');
@@ -123,7 +124,7 @@ assert(obj1.filesize === 0, "Filesize value as expected");
 console.log("  = Unicode check = ");
 var str = "\ud83c\udf91",
     ucs = _.char16le(8),
-    b16 = ucs.bytesFromValue(str);
+    b16 = ucs.pack(str);
 assert(b16[0] === 0x3c, "UTF-16 byte 0 as expected");
 assert(b16[1] === 0xd8, "UTF-16 byte 1 as expected");
 assert(b16[2] === 0x91, "UTF-16 byte 2 as expected");
@@ -132,10 +133,10 @@ assert(b16[4] === 0, "UTF-16 byte 4 as expected");
 assert(b16[5] === 0, "UTF-16 byte 5 as expected");
 assert(b16[6] === 0, "UTF-16 byte 6 as expected");
 assert(b16[7] === 0, "UTF-16 byte 7 as expected");
-assert(ucs.valueFromBytes(b16) === str, "UTF-16LE converted back correctly.");
+assert(ucs.unpack(b16) === str, "UTF-16LE converted back correctly.");
 var str = "\ud83c\udf91",
     ucs = _.char16be(8),
-    b16 = ucs.bytesFromValue(str);
+    b16 = ucs.pack(str);
 assert(b16[0] === 0xd8, "UTF-16BE byte 0 as expected");
 assert(b16[1] === 0x3c, "UTF-16BE byte 1 as expected");
 assert(b16[2] === 0xdf, "UTF-16BE byte 2 as expected");
@@ -144,33 +145,33 @@ assert(b16[4] === 0, "UTF-16BE byte 4 as expected");
 assert(b16[5] === 0, "UTF-16BE byte 5 as expected");
 assert(b16[6] === 0, "UTF-16BE byte 6 as expected");
 assert(b16[7] === 0, "UTF-16BE byte 7 as expected");
-assert(ucs.valueFromBytes(b16) === str, "UTF-16BE converted back correctly.");
+assert(ucs.unpack(b16) === str, "UTF-16BE converted back correctly.");
 var utf = _.char(4),
-    b_8 = utf.bytesFromValue(str);
+    b_8 = utf.pack(str);
 //console.log(b_8);
 assert(b_8[0] === 0xF0, "UTF-8 byte 0 as expected");
 assert(b_8[1] === 0x9F, "UTF-8 byte 1 as expected");
 assert(b_8[2] === 0x8E, "UTF-8 byte 2 as expected");
 assert(b_8[3] === 0x91, "UTF-8 byte 3 as expected");
-assert(utf.valueFromBytes(b_8) === str, "UTF-8 converted back correctly.");
+assert(utf.unpack(b_8) === str, "UTF-8 converted back correctly.");
 
 
 console.log("  = Bitfield check = ");
 var bitle = _.struct([
     _.ubitLE('n', 8)
-]), bufle = bitle.bytesFromValue({n:0x02});
+]), bufle = bitle.pack({n:0x02});
 assert(bufle.length === 1, "ubitLE buffer has correct size.");
 //assert(bufle[0] === 0x40, "ubitLE buffer has correct value.");
 // NEW: ubitLE behavior is different to match GCC.
 assert(bufle[0] === 0x02, "ubitLE buffer has correct value.");
-assert(bitle.valueFromBytes(bufle).n === 0x02, "ubitLE conversion back has original value.");
+assert(bitle.unpack(bufle).n === 0x02, "ubitLE conversion back has original value.");
 
 var bitzz = _.struct([
     _.bool('a'),
     _.ubit('b', 3),
     _.ubitLE('c', 3),
     _.sbit('d', 9)
-]), bufzz = bitzz.bytesFromValue({a:true, b:1, c:1, d:-2}), backzz = bitzz.valueFromBytes(bufzz);
+]), bufzz = bitzz.pack({a:true, b:1, c:1, d:-2}), backzz = bitzz.unpack(bufzz);
 assert(bufzz.length === 2, "Bitfield buffer has correct size.");
 //console.log((0x100+bufzz[0]).toString(2).slice(1), (0x100+bufzz[1]).toString(2).slice(1));
 assert((bufzz[0] & 0x80) >>> 7 === 1, "Bitfield bool stored correctly.");
@@ -197,7 +198,7 @@ var things = _.struct([
 ]);
 assert(things.size === 8, "Padded structure has correct size.");
 assert(things.fields.thing2.offset === 7, "Field after padding is at correct offset.");
-var thingOut = things.bytesFromValue({thing2:0x99}, bufferFrom([0,1,2,3,4,5,6,7,8]), {bytes:1});
+var thingOut = things.pack({thing2:0x99}, bufferFrom([0,1,2,3,4,5,6,7,8]), {bytes:1});
 for (var i = 0; i < 8; ++i) assert(thingOut[i] === i, "Padded output has original value at index "+i);
 assert(thingOut[i] === 0x99, "Padded output has correct value at index "+i);
 
@@ -226,21 +227,21 @@ var multiStruct = _.struct([_.uint8('n')], 2),
     msArr = [];
 msBuf.fill(0xFF);
 msArr.push({n:0x42});
-multiStruct.bytesFromValue(msArr, msBuf);
+multiStruct.pack(msArr, msBuf);
 assert(msBuf[0] === 0x42, "First value set.");
 assert(msBuf[1] === 0xFF, "Next value left.");
 msArr.length = 2;
-multiStruct.bytesFromValue(msArr, msBuf);
+multiStruct.pack(msArr, msBuf);
 assert(msBuf[0] === 0x42, "First value still set.");
 assert(msBuf[1] === 0x00, "Next value is cleared.");
 msArr[1] = msArr[0];
-multiStruct.bytesFromValue(msArr, msBuf);
+multiStruct.pack(msArr, msBuf);
 assert(msBuf[1] === msArr[0].n, "Values as expected.");
 
 var afterMulti = _.struct([_.uint8('nn', 2), _.uint8('n')]),
     amBuf = newBuffer(afterMulti.size);
 amBuf.fill(0x01);
-afterMulti.bytesFromValue({nn:[0x00], n:0x02}, amBuf);
+afterMulti.pack({nn:[0x00], n:0x02}, amBuf);
 assert(amBuf[0] === 0, "Array value correct.");
 assert(amBuf[2] === 2, "After array in expected position.");
 assert(amBuf[1] === 1, "Array missing correctly.");
@@ -261,7 +262,7 @@ assert(newBuf instanceof Uint8Array, "New (NEW) API returns Uint8Array");
 assert(newBuf.length === 6, "New API buffer is correct length");
 assert(Array.isArray(newArr), "New API unpacks expected object type");
 assert(newArr.length === 2, "New API unpacked array is correct length");
-assert(newArr[1].nn[0] === 0xF1, "…and contains expected value.");
+assert(newArr[1].nn[0] === 0xF1, "...and contains expected value.");
 
 console.log (" = Derived type = ");
 
@@ -285,12 +286,12 @@ var bignums = ["01234567ABCDEF90", "8BADF00DC00010FF"],
     dervObj = dervStruct.unpack(dervBuf);
 
 assert(dervStruct.fields.bignums.offset === 8, "Derived field is at correct offset.");
-assert(dervStruct.fields.footer.offset.bytes === 24, "Field following derived field is at correct byte offset.");
-assert(dervStruct.fields.footer.offset.bits === 0, "Field following derived field is at correct bit offset.");
+assert(/** @type {_.Offset} */ (dervStruct.fields.footer.offset).bytes === 24, "Field following derived field is at correct byte offset.");
+assert(/** @type {_.Offset} */ (dervStruct.fields.footer.offset).bits === 0, "Field following derived field is at correct bit offset.");
 assert(dervBuf[8] === 0x01 && dervBuf[15] === 0x90, "Spot check of first packed value looks alright.");
 assert(dervBuf[17] === 0xAD && dervBuf[22] === 0x10, "Spot check of second packed value looks alright.");
 assert(dervBuf[24] === 0x80, "Following field packed as expected.");
-assert(dervObj.header === "Hello.", "Preceding field is correct, yawn…");
+assert(dervObj.header === "Hello.", "Preceding field is correct, yawn...");
 assert(dervObj.bignums[0] === bignums[0], "First array item unpacked via derived field is correct.");
 assert(dervObj.bignums[1] === bignums[1], "Second array item unpacked via derived field is correct.");
 assert(dervObj.footer, "Following field value correct.");

@@ -4,7 +4,11 @@
   "description": "Yet another node.js struct implementation (object↔︎buffer conversion)",
   "main": "lib.js",
   "scripts": {
-    "test": "node test"
+    "test": "npm run-script lint && npm run-script check-types && node test",
+    "lint": "eslint lib.js",
+    "check-types": "tsc --noEmit",
+    "build": "tsc",
+    "prepare": "npm run test && npm run build"
   },
   "repository": {
     "type": "git",

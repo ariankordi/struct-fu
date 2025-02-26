@@ -4,9 +4,11 @@ This is a port of the excellent struct-fu library to work universally, even in p
 
 * Uses ArrayBuffers and DataViews instead of Node `Buffer` (should still work with Buffer though)
   - Works on the earliest browser I tested that includes support for this, Safari 5.1.
-* Strict typing with JSDoc. TypeScript `.d.ts` declarations are in `types`.
 * `lib.js` is written as a UMD module and should be usable in all environments.
   - Minified size is 8.6 KB (Closure Compiler / gzip: 3 KB)
+* Strict typing with JSDoc. TypeScript `.d.ts` declarations are in `types`.
+  - Importing in ESM: `import * as _ from "../struct-fu/lib";`
+  - Types can be imported by name (`import type { StructInstance } from "../struct-fu/lib";`), from either the `.d.ts` or `.js`, or access them like: `_.StructInstance`
 
 Distant TODOs:
 
