@@ -93,25 +93,34 @@
 // // ---------------------------------------------------------------------
 
 (function (root, factory) {
-    // @ts-ignore
+    // @ts-ignore - cannot find name define
     if (typeof define === 'function' && define.amd) {
         // AMD. Register as an anonymous module.
         // @ts-ignore
         define([], factory);
     } else if (typeof module === 'object' && module.exports) {
         // Node.js/CommonJS
-        // @ts-ignore - Possibly can't find 'util' in some TS configs.
-        module.exports = factory(require('util').TextEncoder, require('util').TextDecoder);
+
+        // In Node (in versions earlier than 11, released 2018), TextEn/Decoder
+        // are only available through the "util" package, however bundlers
+        // building for browser will see that and always try to include it.
+
+        // Therefore, this will assume TextEncoder/TextDecoder are in globalThis (not root).
+        module.exports = factory(globalThis.TextEncoder, globalThis.TextDecoder);
+        // NOTE: Uncomment below if you are using versions of Node earlier than 11.
+        // module.exports = factory(require('util').TextEncoder, require('util').TextDecoder);
     } else {
         // Browser globals (root is window)
-        // @ts-ignore
-        root._ = factory(root.TextEncoder, root.TextDecoder);
+
+        // Assume TextEncoder/TextDecoder are either defined or undefined in window.
+        /** @type {*} */ (root)._ = factory(/** @type {*} */ (root).TextEncoder, /** @type {*} */ (root).TextDecoder);
     }
 }(typeof self !== 'undefined' ? self : this,
-/**
- * @param {typeof TextEncoder} _TextEncoder
- * @param {typeof TextDecoder} _TextDecoder
- */
+    /**
+     * @param {typeof TextEncoder} _TextEncoder
+     * @param {typeof TextDecoder} _TextDecoder
+     * @returns Returns the exported namespace.
+     */
     function (_TextEncoder, _TextDecoder) {
 'use strict';
 
@@ -127,18 +136,21 @@ var _ = {};
 // Add ECMA262-5 method binding if not supported natively
 // https://github.com/ReactNativeNews/react-native-newsletter/blob/93016f62af32d97cc009f991d4f7c3c7155a4f26/ie.js#L8
 if (!('bind' in Function.prototype)) {
-    // @ts-ignore
-    Function.prototype.bind = /** @param {unknown} owner */ function (owner) {
+    /**
+     * @param {unknown} owner
+     * @returns {Function}
+     * @this {Function}
+     */
+    // @ts-ignore - Property bind does not exist on never?
+    Function.prototype.bind = function (owner) {
         var that = this;
         if (arguments.length <= 1) {
             return function () {
-                // @ts-ignore
                 return that.apply(owner, arguments);
             };
         } else {
             var args = Array.prototype.slice.call(arguments, 1);
             return function () {
-                // @ts-ignore
                 return that.apply(
                     owner,
                     arguments.length === 0 ? args : args.concat(Array.prototype.slice.call(arguments))

@@ -307,9 +307,9 @@ var derInvert = _.derive(_.bool(), function (v) { return !v }, function (v) { re
     derObj = derBoolArray.unpack(derBuf);
 
 assert(derBoolArray.size === 2, "Struct with doubly-derived field is correct size.");
-assert((derBuf[0] & 0b10000000) === 0b00000000, "First bit in doubly-derived output is correct.");
-assert((derBuf[0] & 0b01000000) === 0b01000000, "Second bit in doubly-derived output is correct.");
-assert((derBuf[0] & 0b00100000) === 0b00000000, "Third bit in doubly-derived output is correct.");
+assert((derBuf[0] & 0x80) === 0x00, "First bit in doubly-derived output is correct."); // 0b10000000 === 0
+assert((derBuf[0] & 0x40) === 0x40, "Second bit in doubly-derived output is correct."); // 0b01000000 === 0b01000000
+assert((derBuf[0] & 0x20) === 0x00, "Third bit in doubly-derived output is correct."); // 0b00100000 === 0
 assert(derBuf[0] === 0x40, "First byte packed fully as expected.");
 assert(derBuf[1] === 0x00, "Padding after derived field packed as expected.");
 assert(derObj.vals.length === 3, "Doubly-derived rountripped array has correct length.");
@@ -380,7 +380,9 @@ var _storeDataBuffer = [
     bufferFrom('AwAFMG0rAiKJRLe1nDWwN5i26X5uuAAAY0FjAGgAYQByAGwAaQBuAGUAAAAAAEwmApBlBttoRBggNEYUgRITYg0AACkAUkhQYwBoAGEAcgBsAGkAbgBlAAAAAAAAAHLb', 'base64')
 ];
 var _storeDataObj = [
+    // eslint-disable-next-line
     {"miiVersion":3,"copyable":0,"ngWord":0,"regionMove":0,"fontRegion":0,"reserved_0":0,"roomIndex":0,"positionInRoom":0,"authorType":0,"birthPlatform":4,"reserved_1":0,"authorID":{"data":[160,65,56,196,160,132,0,0]},"createID":{"data":[219,184,135,49,190,96,43,42,42,66]},"reserved_2":[0,0],"gender":1,"birthMonth":12,"birthDay":10,"favoriteColor":11,"favorite":0,"padding_0":0,"name":"Jasmine","height":28,"build":55,"localonly":0,"faceType":9,"faceColor":0,"faceTex":0,"faceMake":1,"hairType":123,"hairColor":1,"hairFlip":0,"padding_1":0,"eyeType":33,"eyeColor":0,"eyeScale":7,"eyeAspect":3,"eyeRotate":3,"eyeX":2,"eyeY":14,"padding_2":0,"eyebrowType":13,"eyebrowColor":0,"eyebrowScale":4,"eyebrowAspect":6,"padding_3":0,"eyebrowRotate":7,"eyebrowX":6,"eyebrowY":12,"padding_4":0,"noseType":0,"noseScale":0,"noseY":4,"padding_5":0,"mouthType":30,"mouthColor":0,"mouthScale":1,"mouthAspect":4,"mouthY":13,"mustacheType":0,"padding_6":0,"beardType":0,"beardColor":6,"beardScale":4,"beardY":16,"padding_7":0,"glassType":3,"glassColor":3,"glassScale":7,"glassY":11,"moleType":0,"moleScale":1,"moleX":12,"moleY":27,"padding_8":0,"creatorName":"\u0000osigonal","padding_9":0,"crc":36922}, // Creator name is not null terminated.
+    // eslint-disable-next-line
     {"miiVersion":3,"copyable":0,"ngWord":0,"regionMove":0,"fontRegion":0,"reserved_0":0,"roomIndex":5,"positionInRoom":0,"authorType":0,"birthPlatform":3,"reserved_1":0,"authorID":{"data":[109,43,2,34,137,68,183,181]},"createID":{"data":[156,53,176,55,152,182,233,126,110,184]},"reserved_2":[0,0],"gender":1,"birthMonth":1,"birthDay":11,"favoriteColor":0,"favorite":1,"padding_0":0,"name":"charline","height":76,"build":38,"localonly":0,"faceType":1,"faceColor":0,"faceTex":0,"faceMake":9,"hairType":101,"hairColor":6,"hairFlip":0,"padding_1":0,"eyeType":27,"eyeColor":3,"eyeScale":4,"eyeAspect":3,"eyeRotate":4,"eyeX":2,"eyeY":12,"padding_2":0,"eyebrowType":0,"eyebrowColor":1,"eyebrowScale":4,"eyebrowAspect":3,"padding_3":0,"eyebrowRotate":6,"eyebrowX":2,"eyebrowY":10,"padding_4":0,"noseType":1,"noseScale":4,"noseY":9,"padding_5":0,"mouthType":19,"mouthColor":0,"mouthScale":1,"mouthAspect":3,"mouthY":13,"mustacheType":0,"padding_6":0,"beardType":0,"beardColor":0,"beardScale":4,"beardY":10,"padding_7":0,"glassType":0,"glassColor":0,"glassScale":4,"glassY":10,"moleType":0,"moleScale":4,"moleX":2,"moleY":20,"padding_8":0,"creatorName":"charline","padding_9":0,"crc":29403}
 ];
 
@@ -393,14 +395,14 @@ function isAscii(str) {
     return /^[\x00-\x7F]*$/.test(str);
 }
 
-_storeDataBuffer.forEach((buf, i) => {
+_storeDataBuffer.forEach(function (buf, i) {
     var decoded = FFLStoreData.unpack(buf);
     var expected = _storeDataObj[i];
 
     // Make a clone of expected.
     var expectedWithoutStrings = Object.assign({}, expected);
     // Special case for string fields.
-    ['name', 'creatorName'].forEach(/** @param {string} field */ (field) => {
+    ['name', 'creatorName'].forEach(/** @param {string} field */ function (field) {
         // Validate that there are no strange non-ASCII characters.
         // The test data only has ASCII names, this is just a sanity test
         assert(isAscii(decoded[field]), 'Field ' + field + ' in FFLStoreData only has ASCII characters');
