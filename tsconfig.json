@@ -2,7 +2,8 @@
   "compilerOptions": {
     "allowJs": true,
     //"checkJs": true, // Assumed from @ts-check.
-    "allowUmdGlobalAccess": true,
+    "allowUmdGlobalAccess": true, // Still not sure what this does.
+    "types": [], // Do not include any types (@types/node, etc.) by default.
     "target": "es5",
     "module": "umd", // Library is already written to use UMD.
 
@@ -18,5 +19,5 @@
     "emitDeclarationOnly": true,
     "outDir": "types" // Emit .d.ts into types.
   },
-  "include": ["lib.js"] // Only include lib.js.
+  "include": ["lib.js"]
 }

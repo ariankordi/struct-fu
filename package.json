@@ -8,6 +8,7 @@
     "lint": "eslint lib.js",
     "check-types": "tsc --noEmit",
     "build": "tsc",
+    "closure": "google-closure-compiler --warning_level VERBOSE lib.js --js_output_file lib.min.js --language_in ECMASCRIPT5_STRICT --language_out ECMASCRIPT5 --module_resolution NODE",
     "prepare": "npm run test && npm run build"
   },
   "repository": {
@@ -33,7 +34,10 @@
   },
   "homepage": "https://github.com/natevw/struct-fu",
   "devDependencies": {
-    "@eslint/js": "^9.20.0",
-    "eslint": "^9.20.1"
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.8",
+    "eslint": "^9.21.0",
+    "eslint-plugin-jsdoc": "^50.6.3",
+    "undici-types": "^7.4.0"
   }
 }

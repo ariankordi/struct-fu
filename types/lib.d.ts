@@ -1,23 +1,21 @@
 declare namespace _exports {
-    export { BufferSource, Cursor, BitTransform, ByteTransform, Offset, PaddingField, Field, StructInstance };
+    export { BufferSource, Offset, BitTransform, ByteTransform, PaddingField, Field, StructInstance };
 }
 declare namespace _exports {
     /**
      * Defines a new structure with the given fields.
-     *
      * Overloads:
-     *    _.struct(fields, count?)
-     *    _.struct(name, fields, count?)
-     *
+     * _.struct(fields, count?)
+     * _.struct(name, fields, count?)
      * @param {string|Array<Field>} name - The structure name or the array of fields if no name.
      * @param {Array<Field|StructInstance<*>>|number} [fields] - The array of fields OR the count if the first param was fields.
      * @param {number} [count] - The number of array elements if making an array of structs.
      * @returns {StructInstance<*>} The resulting struct definition (and array, if count was provided).
+     * @throws {Error} Invalid .padTo..., Improperly aligned bitfield at end of struct
      */
     function struct(name: string | Array<Field>, fields?: Array<Field | StructInstance<any>> | number, count?: number): StructInstance<any>;
     /**
      * Defines a padding field up to the specified offset in bytes.
-     *
      * @param {number} off - The byte offset to pad to.
      * @returns {Field & {_padTo: number, _id?: string}} The padding field definition.
      */
@@ -27,9 +25,9 @@ declare namespace _exports {
     };
     /**
      * Boolean field: 1-bit big-endian bitfield that interprets 1/0 as true/false.
-     *
      * @param {string} [name]
      * @param {number} [count]
+     * @returns {Field}
      */
     function bool(name?: string, count?: number): Field;
     let ubit: (name?: string | undefined, width?: number | undefined, count?: number | undefined) => Field;
@@ -39,28 +37,27 @@ declare namespace _exports {
     let char: (name: string | number, size?: number | undefined, count?: number | undefined) => Field & ByteTransform;
     let char16le: (name: string | number, size?: number | undefined, count?: number | undefined) => Field & ByteTransform;
     let char16be: (name: string | number, size?: number | undefined, count?: number | undefined) => Field & ByteTransform;
-    let uint8: (arg0: string | number, arg1?: number | undefined) => Field;
-    let uint16: (arg0: string | number, arg1?: number | undefined) => Field;
-    let uint32: (arg0: string | number, arg1?: number | undefined) => Field;
-    let uint16le: (arg0: string | number, arg1?: number | undefined) => Field;
-    let uint32le: (arg0: string | number, arg1?: number | undefined) => Field;
-    let int8: (arg0: string | number, arg1?: number | undefined) => Field;
-    let int16: (arg0: string | number, arg1?: number | undefined) => Field;
-    let int32: (arg0: string | number, arg1?: number | undefined) => Field;
-    let int16le: (arg0: string | number, arg1?: number | undefined) => Field;
-    let int32le: (arg0: string | number, arg1?: number | undefined) => Field;
-    let float32: (arg0: string | number, arg1?: number | undefined) => Field;
-    let float64: (arg0: string | number, arg1?: number | undefined) => Field;
-    let float32le: (arg0: string | number, arg1?: number | undefined) => Field;
-    let float64le: (arg0: string | number, arg1?: number | undefined) => Field;
+    let uint8: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let uint16: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let uint32: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let uint16le: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let uint32le: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let int8: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let int16: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let int32: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let int16le: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let int32le: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let float32: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let float64: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let float32le: (arg0: (string | number), arg1?: number | undefined) => Field;
+    let float64le: (arg0: (string | number), arg1?: number | undefined) => Field;
     /**
      * Derives a new field based on an existing one with custom pack and unpack functions.
      * The types are intentionally any.
-     *
      * @param {Field} orig - The original field to derive from.
      * @param {function(*): *} pack - The function to pack the derived value.
      * @param {function(*): *} unpack - The function to unpack the derived value.
-     * @returns {function(string|number=, number=): Field} A function to create the derived field.
+     * @returns {function((string|number)=, number=): Field} A function to create the derived field.
      */
     function derive(orig: Field, pack: (arg0: any) => any, unpack: (arg0: any) => any): (arg0: (string | number) | undefined, arg1: number | undefined) => Field;
 }
@@ -70,9 +67,9 @@ export = _exports;
  */
 type BufferSource = ArrayBuffer | Uint8Array;
 /**
- * A type for the "cursor" used to track the byte and bit offsets.
+ * A type for the offset/"cursor" used to track the byte and bit offsets.
  */
-type Cursor = {
+type Offset = {
     /**
      * - Current byte offset.
      */
@@ -127,13 +124,6 @@ type ByteTransform = {
     size?: number | undefined;
 };
 /**
- * Defines the shape of the offset object used in many function signatures.
- */
-type Offset = {
-    bytes: number;
-    bits?: number | undefined;
-};
-/**
  * Represents a padding field that ensures proper byte alignment in a struct.
  * It does not hold a value but affects struct layout.
  */
@@ -165,7 +155,7 @@ type Field = {
      */
     width?: number | undefined;
     /**
-     * - Byte or (byte,bits) offset.
+     * - Byte or (byte, bits) offset.
      */
     offset?: number | Offset | undefined;
     /**
@@ -175,15 +165,19 @@ type Field = {
     /**
      * - Packs a value into a buffer (`bytesFromValue`).
      */
-    pack: (arg0: any, arg1: BufferSource, arg2: Offset | undefined) => BufferSource;
+    pack: (arg0: any, arg1: BufferSource | undefined, arg2: Offset | undefined) => Uint8Array;
     /**
      * - If this is a nested struct, this maps sub-fields to their definitions.
      */
-    _hoistFields?: Record<string, Field> | null | undefined;
+    _hoistFields?: {
+        [x: string]: Field;
+    } | null | undefined;
     /**
      * - An object mapping field names to their definitions.
      */
-    fields?: Record<string, Field> | undefined;
+    fields?: {
+        [x: string]: Field;
+    } | undefined;
 };
 /**
  * Template for the return type of _.struct(), representing an instance of a structure with pack/unpack methods.
@@ -201,7 +195,9 @@ type StructInstance<T> = {
     /**
      * - Field definitions keyed by field name.
      */
-    fields: Record<string, Field>;
+    fields: {
+        [x: string]: Field;
+    };
     /**
      * - The total size in bytes of the packed structure.
      */
@@ -213,5 +209,7 @@ type StructInstance<T> = {
     /**
      * - If this is a nested struct, this maps sub-fields to their definitions.
      */
-    _hoistFields?: Record<string, Field> | null | undefined;
+    _hoistFields?: {
+        [x: string]: Field;
+    } | null | undefined;
 };
