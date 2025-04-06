@@ -13,23 +13,23 @@ module.exports = [
             // This library is implemented in UMD, but the preference
             // is to not indent within the UMD block.
             'indent': ['error', 4, {
-            // TODO: @stylistic/js/indent
+            // TODO: @stylistic/indent
                 'ignoredNodes': ['Program > ExpressionStatement > CallExpression > :last-child > *']
             }],
             // Single quotes.
-            // TODO: @stylistic/js/quotes
+            // TODO: @stylistic/quotes
             'quotes': ['error', 'single', { 'avoidEscape': true }],
-            // TODO: @stylistic/js/semi
+            // TODO: @stylistic/semi
             'semi': ['error', 'always'], // Enforce semicolons.
-            // TODO: @stylistic/js/brace-style
+            // TODO: @stylistic/brace-style
             'brace-style': ['error', '1tbs', { 'allowSingleLine': true }],
-            // TODO: @stylistic/js/object-curly-spacing
+            // TODO: @stylistic/object-curly-spacing
             'object-curly-spacing': ['error', 'always'],
-            // TODO: @stylistic/js/key-spacing
+            // TODO: @stylistic/key-spacing
             'key-spacing': ['error', { 'afterColon': true } ],
-            // TODO: @stylistic/js/space-infix-ops
+            // TODO: @stylistic/space-infix-ops
             'space-infix-ops': ['error', { 'int32Hint': false }],
-            // TODO: @stylistic/js/comma-spacing
+            // TODO: @stylistic/comma-spacing
             'comma-spacing': ['error', { 'after': true }],
 
             'no-unused-vars': ['warn'],
@@ -75,9 +75,24 @@ module.exports = [
             // Require hyphen before param descriptions but not before return description.
             'jsdoc/require-hyphen-before-param-description': ['warn', 'always', { 'tags': { 'returns': 'never' } }],
             'jsdoc/require-asterisk-prefix': 'warn',
+            'jsdoc/require-asterisk-prefix': 'warn',
             'jsdoc/check-syntax': 'warn',
             'jsdoc/check-line-alignment': 'warn',
-            'jsdoc/check-indentation': 'warn'
+            'jsdoc/check-indentation': 'warn',
+            'jsdoc/convert-to-jsdoc-comments': 'warn',
+            'jsdoc/multiline-blocks': ['warn', {
+                noMultilineBlocks: true,
+                minimumLengthForMultiline: 80,
+                multilineTags: []
+            }]
         }
+    },
+
+   	{
+        ignores: [
+            // Defaults
+            '**/dist/', // Common build output directory
+            '**/*.min.js' // Minified JavaScript files
+        ]
     }
 ];

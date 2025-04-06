@@ -60,7 +60,8 @@
  * @property {number | Offset} [offset] - Byte or (byte, bits) offset.
  * @property {function(BufferSource, Offset=): *} unpack - Unpacks the field value from a buffer (`valueFromBytes`).
  * @property {function(*, BufferSource=, Offset=): Uint8Array} pack - Packs a value into a buffer (`bytesFromValue`).
- * @property {Object<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
+ * @property {Object<string, Field>|null} [_hoistFields] -
+ * If this is a nested struct, this maps sub-fields to their definitions.
  * @property {Object<string, Field>} [fields] - An object mapping field names to their definitions.
  */
 
@@ -74,11 +75,13 @@
  * @property {Object<string, Field>} fields - Field definitions keyed by field name.
  * @property {number} size - The total size in bytes of the packed structure.
  * @property {string} [name] - The name of the struct (if provided).
- * @property {Object<string, Field>|null} [_hoistFields] - If this is a nested struct, this maps sub-fields to their definitions.
+ * @property {Object<string, Field>|null} [_hoistFields] -
+ * If this is a nested struct, this maps sub-fields to their definitions.
  */
 
 // // ---------------------------------------------------------------------
 // //  UMD / factory setup
+// eslint-disable-next-line jsdoc/convert-to-jsdoc-comments -- not documenting the umd block
 // // ---------------------------------------------------------------------
 
 (function (root, factory) {
@@ -102,7 +105,8 @@
         // Browser globals (root is window)
 
         // Assume TextEncoder/TextDecoder are either defined or undefined in window.
-        /** @type {*} */ (root)._ = factory(/** @type {*} */ (root).TextEncoder, /** @type {*} */ (root).TextDecoder);
+        /** @type {*} */ (root)._ =
+          factory(/** @type {*} */ (root).TextEncoder, /** @type {*} */ (root).TextDecoder);
     }
 }(typeof self !== 'undefined' ? self : this,
     // It seems that TypeScript is predicting a type for the whole
@@ -115,7 +119,7 @@
      * @returns Returns the exported namespace.
      */
     function (_TextEncoder, _TextDecoder) {
-      /* eslint-enable jsdoc/require-returns-type */
+/* eslint-enable jsdoc/require-returns-type */
 'use strict';
 
 /**
@@ -263,7 +267,8 @@ function arrayizeField(f, count) {
  * _.struct(fields, count?)
  * _.struct(name, fields, count?)
  * @param {string|Array<Field>} name - The structure name or the array of fields if no name.
- * @param {Array<Field|StructInstance<*>>|number} [fields] - The array of fields OR the count if the first param was fields.
+ * @param {Array<Field|StructInstance<*>>|number} [fields] -
+ * The array of fields OR the count if the first param was fields.
  * @param {number} [count] - The number of array elements if making an array of structs.
  * @returns {StructInstance<*>} The resulting struct definition (and array, if count was provided).
  * @throws {Error} Invalid .padTo..., Improperly aligned bitfield at end of struct
@@ -622,6 +627,10 @@ _.bool = function (name, count) {
 
 /**
  * Unsigned bitfield (big-endian).
+ * @param {string} name - The name of the bitfield.
+ * @param {number} [width=1] - The width of the bitfield in bits.
+ * @param {number} [count] - The number of bitfields in an array.
+ * @returns {Object} The defined big-endian bitfield.
  */
 _.ubit = bitfield.bind({
     /**
@@ -750,24 +759,6 @@ function bytefield(name, size, count) {
             impl.vTb.call(this, val, blk);
             addField(off, this);
             return /** @type {Uint8Array} */ (buf);
-        },
-
-        // Default transforms:
-        /**
-         * @param {Uint8Array} b
-         * @returns {Uint8Array}
-         */
-        b2v: function (b) { return b; },
-        /**
-         * @param {Array<number>|Uint8Array|ArrayBuffer} v
-         * @param {Uint8Array} b
-         * @returns {number}
-         */
-        vTb: function (v, b) {
-            if (!v) return 0;
-            var src = new Uint8Array(v);
-            b.set(src.subarray(0, b.length));
-            return b.length;
         }
     }), count));
 }

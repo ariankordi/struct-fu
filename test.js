@@ -1,33 +1,14 @@
 // @ts-check
-// not eslinted
 
 var _ = require('./lib');
 
-// new Buffer() is deprecated in recent node. This ensures
-// we always use the correct method for the current node.
 /**
- * @param {number} size
- * @returns {Buffer}
+ * Creates a new Uint8Array of given size backed by an ArrayBuffer.
+ * @param {number} size - The size of the buffer in bytes.
+ * @returns {Uint8Array} A new Uint8Array of the specified size.
  */
 function newBuffer(size) {
-    if (Buffer.alloc) {
-        return Buffer.alloc(size);
-    } else {
-        return new Buffer(size);
-    }
-}
-
-/**
- * @param {*} content - NOTE don't know type for this
- * @param {BufferEncoding} [encoding]
- * @returns {Buffer}
- */
-function bufferFrom(content, encoding) {
-    if (Buffer.from) {
-        return Buffer.from(content, encoding);
-    } else {
-        return new Buffer(content, encoding);
-    }
+    return new Uint8Array(new ArrayBuffer(size));
 }
 
 var entry = _.struct([
@@ -101,8 +82,9 @@ assert(entry.fields.reserved.offset === 12, '...but reserved array field itself 
 assert(/** @type {_.Offset} */ (entry.fields.reserved2.offset).bytes === 21, "Hoisted field 'reserved2' has correct offset.");
 
 console.log('  = Write check =  ');
-var _bufKnown = bufferFrom('6175746f65786563626174a00000000000000000000000000000000000000000', 'hex');
-assert(_bufKnown.length === 32, "Runtime parsed known buffer as 'hex'.");
+// var _bufKnown = bufferFrom('6175746f65786563626174a00000000000000000000000000000000000000000', 'hex');
+var _bufKnown = new Uint8Array([0x61, 0x75, 0x74, 0x6f, 0x65, 0x78, 0x65, 0x63, 0x62, 0x61, 0x74, 0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+assert(_bufKnown.length === 32, 'Runtime parsed known buffer.');
 assert(_bufKnown[0] === 0x61 && _bufKnown[7] === 0x63 && _bufKnown[31] === 0, 'Known buffer parse passes spot check.');
 assert(_buf.length === _bufKnown.length, 'Buffer size matches');
 for (var i = 0, len = _buf.length; i < len; ++i) assert(_buf[i] === _bufKnown[i], 'Buffer contents match at ' + i);
@@ -199,7 +181,7 @@ var things = _.struct([
 ]);
 assert(things.size === 8, 'Padded structure has correct size.');
 assert(things.fields.thing2.offset === 7, 'Field after padding is at correct offset.');
-var thingOut = things.pack({ thing2: 0x99 }, bufferFrom([0, 1, 2, 3, 4, 5, 6, 7, 8]), { bytes: 1 });
+var thingOut = things.pack({ thing2: 0x99 }, new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8]), { bytes: 1 });
 for (var i = 0; i < 8; ++i) assert(thingOut[i] === i, 'Padded output has original value at index ' + i);
 assert(thingOut[i] === 0x99, 'Padded output has correct value at index ' + i);
 
@@ -249,7 +231,7 @@ assert(amBuf[2] === 2, 'After array in expected position.');
 assert(amBuf[1] === 1, 'Array missing correctly.');
 
 var halfArray = _.struct([_.bool('nibble', 4), _.padTo(2)]);
-var halfBuf = bufferFrom([0, 0]);
+var halfBuf = new Uint8Array([0, 0]);
 halfArray.pack({ nibble: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }, halfBuf);
 assert(halfBuf[0] === 0xF0, 'First byte set as expected when providing overlong array');
 assert(halfBuf[1] === 0x00, 'Second byte set as expected when providing overlong array');
@@ -304,7 +286,8 @@ var derBoolArray = _.struct([
     derString('vals', 3),
     _.padTo(2)
 ]);
-var derBuf = bufferFrom('0000', 'hex');
+// var derBuf = bufferFrom('0000', 'hex');
+var derBuf = new Uint8Array([0, 0]);
 derBoolArray.pack({ vals: ['true', 'false', 'true', 'extra'] }, derBuf);
 var derObj = derBoolArray.unpack(derBuf);
 
@@ -377,9 +360,9 @@ var FFLStoreData = _.struct([
 // Expected to have non-ASCII names and a corresponding storeDataObj member.
 var _storeDataBuffer = [
     // JasmineChlora
-    bufferFrom('AwAAQKBBOMSghAAA27iHMb5gKyoqQgAAWS1KAGEAcwBtAGkAbgBlAAAAAAAAABw3EhB7ASFuQxwNZMcYAAgegg0AMEGzW4JtAABvAHMAaQBnAG8AbgBhAGwAAAAAAJA6', 'base64'),
+    new Uint8Array([0x03, 0x00, 0x00, 0x40, 0xa0, 0x41, 0x38, 0xc4, 0xa0, 0x84, 0x00, 0x00, 0xdb, 0xb8, 0x87, 0x31, 0xbe, 0x60, 0x2b, 0x2a, 0x2a, 0x42, 0x00, 0x00, 0x59, 0x2d, 0x4a, 0x00, 0x61, 0x00, 0x73, 0x00, 0x6d, 0x00, 0x69, 0x00, 0x6e, 0x00, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1c, 0x37, 0x12, 0x10, 0x7b, 0x01, 0x21, 0x6e, 0x43, 0x1c, 0x0d, 0x64, 0xc7, 0x18, 0x00, 0x08, 0x1e, 0x82, 0x0d, 0x00, 0x30, 0x41, 0xb3, 0x5b, 0x82, 0x6d, 0x00, 0x00, 0x6f, 0x00, 0x73, 0x00, 0x69, 0x00, 0x67, 0x00, 0x6f, 0x00, 0x6e, 0x00, 0x61, 0x00, 0x6c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x3a]),
     // chacha12_1101
-    bufferFrom('AwAFMG0rAiKJRLe1nDWwN5i26X5uuAAAY0FjAGgAYQByAGwAaQBuAGUAAAAAAEwmApBlBttoRBggNEYUgRITYg0AACkAUkhQYwBoAGEAcgBsAGkAbgBlAAAAAAAAAHLb', 'base64')
+    new Uint8Array([0x03, 0x00, 0x05, 0x30, 0x6d, 0x2b, 0x02, 0x22, 0x89, 0x44, 0xb7, 0xb5, 0x9c, 0x35, 0xb0, 0x37, 0x98, 0xb6, 0xe9, 0x7e, 0x6e, 0xb8, 0x00, 0x00, 0x63, 0x41, 0x63, 0x00, 0x68, 0x00, 0x61, 0x00, 0x72, 0x00, 0x6c, 0x00, 0x69, 0x00, 0x6e, 0x00, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x26, 0x02, 0x90, 0x65, 0x06, 0xdb, 0x68, 0x44, 0x18, 0x20, 0x34, 0x46, 0x14, 0x81, 0x12, 0x13, 0x62, 0x0d, 0x00, 0x00, 0x29, 0x00, 0x52, 0x48, 0x50, 0x63, 0x00, 0x68, 0x00, 0x61, 0x00, 0x72, 0x00, 0x6c, 0x00, 0x69, 0x00, 0x6e, 0x00, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x72, 0xdb])
 ];
 var _storeDataObj = [
     // eslint-disable-next-line
@@ -416,7 +399,8 @@ _storeDataBuffer.forEach(function (buf, i) {
     var match = JSON.stringify(decoded) === JSON.stringify(expectedWithoutStrings);
     assert(match, 'FFLStoreData index ' + i + ' unpacked to object matches');
 
-    var rePacked = FFLStoreData.pack(expected); // Pack expected since we know it's equal
+    /** Repacked expected data since we know it's equal. */
+    var rePacked = FFLStoreData.pack(expected);
     var reMatch = new Uint8Array(rePacked).toString() === new Uint8Array(buf).toString();
     assert(reMatch, 'FFLStoreData index ' + i + ' repacked matches');
 });
