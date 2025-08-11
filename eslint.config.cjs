@@ -3,10 +3,14 @@ var jsdoc = require('eslint-plugin-jsdoc');
 /** @type {import('eslint').Linter.Config[]} */
 module.exports = [
     {
+        files: ['./lib.js'],
         languageOptions: {
             // Targeting older browsers.
             ecmaVersion: 5,
-            sourceType: 'script'
+            sourceType: 'script',
+            globals: {
+                'jest': true
+            }
         },
         ignores: ['node_modules/', 'dist/'], // Ignore common build folders
         rules: {
@@ -31,6 +35,18 @@ module.exports = [
             'space-infix-ops': ['error', { 'int32Hint': false }],
             // TODO: @stylistic/comma-spacing
             'comma-spacing': ['error', { 'after': true }],
+            // TODO: @stylistic/max-len
+
+            'max-len': ['warn', {
+                code: 100,
+                comments: 120,
+                ignoreUrls: true, // Ignore long URLs
+                ignoreStrings: true, // Ignore long strings
+                ignoreTemplateLiterals: true, // Ignore long template literals
+                ignoreRegExpLiterals: true, // Ignore regex
+                ignoreTrailingComments: false, // Enforce trailing comment length
+                ignoreComments: false // Enforce all comment lines
+            }],
 
             'no-unused-vars': ['warn'],
             'no-console': 'off',
@@ -39,6 +55,18 @@ module.exports = [
             'one-var': ['error', 'never']
         }
     },
+
+  {
+    files: ['**/*.js'], // Default
+    languageOptions: {
+      ecmaVersion: 2015, // Enable ES6+ parsing
+    },
+    rules: {
+      // ES6-specific rules.
+      'prefer-const': 'error',
+      'no-var': 'error',
+    }
+  },
 
     // https://www.npmjs.com/package/eslint-plugin-jsdoc
     jsdoc.configs['flat/recommended'],
