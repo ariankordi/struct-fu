@@ -343,7 +343,7 @@ _.struct = function (name, fields, count) {
             });
         } else if (f.name) {
             // Create a local copy, assign offset.
-            var localCopy = Object.create(f);
+            var localCopy = f; //Object.create(f);
             if ('width' in localCopy && typeof localCopy.width === 'number') {
                 localCopy.offset = { bytes: _size.bytes, bits: _size.bits };
             } else {
