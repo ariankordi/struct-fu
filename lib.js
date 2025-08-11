@@ -378,7 +378,8 @@ _.struct = function (name, fields, count) {
             fieldDefs.forEach(function (f) {
                 if ('_padTo' in f && /** @type {PaddingField} */ (f)._id !== undefined) {
                     // It's a pad spec; retrieve the pad field from _padsById.
-                    addField(/** @type {Offset} */ (off), _padsById[/** @type {PaddingField} */ (f)._id]);
+                    addField(/** @type {Offset} */ (off),
+                        _padsById[/** @type {PaddingField} */ (f)._id]);
                     return;
                 }
                 var value = f.unpack(buf, off);
@@ -406,7 +407,8 @@ _.struct = function (name, fields, count) {
             off = off || { bytes: 0, bits: 0 };
             fieldDefs.forEach(function (f) {
                 if ('_padTo' in f && /** @type {PaddingField} */ (f)._id !== undefined) {
-                    addField(/** @type {Offset} */ (off), _padsById[/** @type {PaddingField} */ (f)._id]);
+                    addField(/** @type {Offset} */ (off),
+                        _padsById[/** @type {PaddingField} */ (f)._id]);
                     return;
                 }
                 var value = f.name ? obj[f.name] : obj;
@@ -726,7 +728,8 @@ function bytefield(name, size, count) {
     }
     var impl = this;
 
-    return /** @type {Field & ByteTransform} */ (arrayizeField(/** @type {Field & ByteTransform} */ ({
+    return /** @type {Field & ByteTransform} */ (arrayizeField
+    (/** @type {Field & ByteTransform} */ ({
         name: fieldName,
         size: fieldSize,
 

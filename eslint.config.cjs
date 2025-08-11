@@ -1,72 +1,75 @@
-var jsdoc = require('eslint-plugin-jsdoc');
+const jsdoc = require('eslint-plugin-jsdoc');
+
+/** Shared ESLint rules for both ES5 and ES6 files. */
+const sharedRules = {
+    // This library is implemented in UMD, but the preference
+    // is to not indent within the UMD block.
+    'indent': ['error', 4, {
+    // TODO: @stylistic/indent
+        'ignoredNodes': ['Program > ExpressionStatement > CallExpression > :last-child > *']
+    }],
+    // Single quotes.
+    // TODO: @stylistic/quotes
+    'quotes': ['error', 'single', { 'avoidEscape': true }],
+    // TODO: @stylistic/semi
+    'semi': ['error', 'always'], // Enforce semicolons.
+    // TODO: @stylistic/brace-style
+    'brace-style': ['error', '1tbs', { 'allowSingleLine': true }],
+    // TODO: @stylistic/object-curly-spacing
+    'object-curly-spacing': ['error', 'always'],
+    // TODO: @stylistic/key-spacing
+    'key-spacing': ['error', { 'afterColon': true }],
+    // TODO: @stylistic/space-infix-ops
+    'space-infix-ops': ['error', { 'int32Hint': false }],
+    // TODO: @stylistic/comma-spacing
+    'comma-spacing': ['error', { 'after': true }],
+    // TODO: @stylistic/max-len
+
+    'max-len': ['warn', {
+        code: 100,
+        comments: 120,
+        ignoreUrls: true, // Ignore long URLs
+        ignoreStrings: true, // Ignore long strings
+        ignoreTemplateLiterals: true, // Ignore long template literals
+        ignoreRegExpLiterals: true, // Ignore regex
+        ignoreTrailingComments: false, // Enforce trailing comment length
+        ignoreComments: false // Enforce all comment lines
+    }],
+
+    'no-unused-vars': ['warn'],
+    'no-console': 'off',
+    'eqeqeq': ['error', 'always'], // Enforce ===
+    'curly': ['error', 'multi-line'],
+    'one-var': ['error', 'never']
+};
 
 /** @type {import('eslint').Linter.Config[]} */
 module.exports = [
     {
-        files: ['./lib.js'],
+        files: ['**/lib.js', '**/test.js'],
         languageOptions: {
             // Targeting older browsers.
             ecmaVersion: 5,
-            sourceType: 'script',
+            sourceType: 'script'
+        },
+        ignores: ['node_modules/', 'dist/'], // Ignore common build folders
+        rules: sharedRules
+    },
+
+    {
+        files: ['**/*.mjs', '**/*.cjs'], // Default for all other files.
+        languageOptions: {
+            ecmaVersion: 2015, // Enable ES6+ for all other JS.
             globals: {
                 'jest': true
             }
         },
-        ignores: ['node_modules/', 'dist/'], // Ignore common build folders
-        rules: {
-            // This library is implemented in UMD, but the preference
-            // is to not indent within the UMD block.
-            'indent': ['error', 4, {
-            // TODO: @stylistic/indent
-                'ignoredNodes': ['Program > ExpressionStatement > CallExpression > :last-child > *']
-            }],
-            // Single quotes.
-            // TODO: @stylistic/quotes
-            'quotes': ['error', 'single', { 'avoidEscape': true }],
-            // TODO: @stylistic/semi
-            'semi': ['error', 'always'], // Enforce semicolons.
-            // TODO: @stylistic/brace-style
-            'brace-style': ['error', '1tbs', { 'allowSingleLine': true }],
-            // TODO: @stylistic/object-curly-spacing
-            'object-curly-spacing': ['error', 'always'],
-            // TODO: @stylistic/key-spacing
-            'key-spacing': ['error', { 'afterColon': true } ],
-            // TODO: @stylistic/space-infix-ops
-            'space-infix-ops': ['error', { 'int32Hint': false }],
-            // TODO: @stylistic/comma-spacing
-            'comma-spacing': ['error', { 'after': true }],
-            // TODO: @stylistic/max-len
-
-            'max-len': ['warn', {
-                code: 100,
-                comments: 120,
-                ignoreUrls: true, // Ignore long URLs
-                ignoreStrings: true, // Ignore long strings
-                ignoreTemplateLiterals: true, // Ignore long template literals
-                ignoreRegExpLiterals: true, // Ignore regex
-                ignoreTrailingComments: false, // Enforce trailing comment length
-                ignoreComments: false // Enforce all comment lines
-            }],
-
-            'no-unused-vars': ['warn'],
-            'no-console': 'off',
-            'eqeqeq': ['error', 'always'], // Enforce ===
-            'curly': ['error', 'multi-line'],
-            'one-var': ['error', 'never']
-        }
+        rules: Object.assign({}, sharedRules, {
+            // ES6-specific rules.
+            'prefer-const': 'error',
+            'no-var': 'error',
+        })
     },
-
-  {
-    files: ['**/*.js'], // Default
-    languageOptions: {
-      ecmaVersion: 2015, // Enable ES6+ parsing
-    },
-    rules: {
-      // ES6-specific rules.
-      'prefer-const': 'error',
-      'no-var': 'error',
-    }
-  },
 
     // https://www.npmjs.com/package/eslint-plugin-jsdoc
     jsdoc.configs['flat/recommended'],

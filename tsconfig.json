@@ -3,9 +3,11 @@
     "allowJs": true,
     //"checkJs": true, // Assumed from @ts-check.
     "allowUmdGlobalAccess": true, // Still not sure what this does.
-    "types": [], // Do not include any types (@types/node, etc.) by default.
+    "types": ["jest"], // Include types for Jest by default.
     "target": "es5",
     "module": "umd", // Library is already written to use UMD.
+    "skipLibCheck": true,
+    "esModuleInterop": true, // To import it from ESM.
 
     "strict": true,
     "noImplicitAny": true,
@@ -19,5 +21,4 @@
     "emitDeclarationOnly": true,
     "outDir": "types" // Emit .d.ts into types.
   },
-  "include": ["lib.js"]
 }
